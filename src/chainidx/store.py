@@ -30,7 +30,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from chainidx.indexers import Indexer, default_indexers
-from chainidx.model import Asset, Block, Point, Tip, Tx, TxOut
+from chainidx.model import Asset, Block, Point, Tip, Tx, TxDetail, TxIn, TxOut
 
 
 class Store(Protocol):
@@ -66,6 +66,18 @@ class Store(Protocol):
 
     def recent_points(self, limit: int = 10) -> list[Point]:
         """Return the newest stored points, newest first, for resuming."""
+        ...
+
+    def latest_blocks(self, limit: int = 20) -> list[Block]:
+        """Return the most recently stored blocks, newest first."""
+        ...
+
+    def get_tx(self, tx_hash: str) -> TxDetail | None:
+        """Return a transaction's block, inputs, and outputs, or ``None``."""
+        ...
+
+    def assets(self) -> tuple[Asset, ...]:
+        """Return the native assets currently held in unspent outputs."""
         ...
 
     def pools(self) -> tuple[str, ...]:
@@ -308,7 +320,10 @@ class SqliteStore:
     """A store backed by SQLite. Satisfies the ``Store`` protocol."""
 
     def __init__(self, path: str = ":memory:", indexers: Sequence[Indexer] | None = None) -> None:
-        self._conn = sqlite3.connect(path)
+        # check_same_thread=False lets the read-only API serve queries from
+        # FastAPI's worker threads. SQLite serializes access internally; the
+        # follower is the only writer, so this is safe for our use.
+        self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         # Enforce foreign keys so a bad delete order is caught, not silently
         # allowed. Chapter 05 relies on this to prove leaf-first deletion.
@@ -460,6 +475,49 @@ class SqliteStore:
             "SELECT hash, slot_no FROM block ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
         return [Point(slot_no=r["slot_no"], block_hash=r["hash"]) for r in rows]
+
+    def latest_blocks(self, limit: int = 20) -> list[Block]:
+        rows = self._conn.execute(
+            "SELECT hash FROM block ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        blocks = [self.get_block(r["hash"]) for r in rows]
+        return [b for b in blocks if b is not None]
+
+    def get_tx(self, tx_hash: str) -> TxDetail | None:
+        row = self._conn.execute(
+            "SELECT t.id AS id, b.hash AS block_hash FROM tx t "
+            "JOIN block b ON b.id = t.block_id WHERE t.hash = ?",
+            (tx_hash,),
+        ).fetchone()
+        if row is None:
+            return None
+        out_rows = self._conn.execute(
+            "SELECT address, lovelace FROM tx_out WHERE tx_id = ? ORDER BY index_no",
+            (row["id"],),
+        ).fetchall()
+        in_rows = self._conn.execute(
+            "SELECT tx_out_hash, tx_out_index FROM tx_in WHERE tx_in_id = ? ORDER BY id",
+            (row["id"],),
+        ).fetchall()
+        return TxDetail(
+            tx_id=tx_hash,
+            block_hash=row["block_hash"],
+            inputs=tuple(TxIn(tx_id=r["tx_out_hash"], index=r["tx_out_index"]) for r in in_rows),
+            outputs=tuple(TxOut(address=r["address"], lovelace=r["lovelace"]) for r in out_rows),
+        )
+
+    def assets(self) -> tuple[Asset, ...]:
+        rows = self._conn.execute(
+            "SELECT m.policy_id AS policy_id, m.asset_name AS asset_name, "
+            "SUM(m.quantity) AS qty FROM ma_tx_out m "
+            "JOIN tx_out o ON o.id = m.tx_out_id "
+            "WHERE o.consumed_by_tx_id IS NULL "
+            "GROUP BY m.policy_id, m.asset_name ORDER BY m.policy_id, m.asset_name"
+        ).fetchall()
+        return tuple(
+            Asset(policy_id=r["policy_id"], asset_name=r["asset_name"], quantity=int(r["qty"]))
+            for r in rows
+        )
 
     def pools(self) -> tuple[str, ...]:
         # A pool counts as active if it has a registration and no retirement.

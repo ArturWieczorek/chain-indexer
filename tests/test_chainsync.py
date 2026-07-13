@@ -7,6 +7,7 @@ import cbor2
 
 from chainidx.chainsync import (
     decode_point,
+    encode,
     encode_point,
     find_intersect_message,
     parse_intersect_reply,
@@ -33,6 +34,12 @@ def test_message_builders() -> None:
     assert request_next_message() == [0]
     assert find_intersect_message([ORIGIN]) == [4, [[]]]
     assert find_intersect_message([Point(1, _HASH)]) == [4, [[1, bytes.fromhex(_HASH)]]]
+
+
+def test_encode_serializes_to_cbor() -> None:
+    import cbor2
+
+    assert cbor2.loads(encode([0])) == [0]
 
 
 def test_parse_intersect_reply() -> None:

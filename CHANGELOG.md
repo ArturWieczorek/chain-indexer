@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch13] - The query API
+
+### Added
+
+- `chainidx.api.create_app`: a Blockfrost-shaped REST API (blocks, txs,
+  addresses, assets, pools, accounts, governance) over the store.
+- Store query methods: `latest_blocks`, `get_tx`, `assets`; `TxDetail` model.
+
 ## [ch12] - Ouroboros wire II (chain-sync)
 
 ### Added

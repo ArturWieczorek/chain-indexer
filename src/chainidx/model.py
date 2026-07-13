@@ -192,6 +192,16 @@ class Point:
 
 
 @dataclass(frozen=True)
+class TxDetail:
+    """A transaction as the query API reports it: its block, inputs, and outputs."""
+
+    tx_id: str
+    block_hash: str
+    inputs: tuple[TxIn, ...]
+    outputs: tuple[TxOut, ...]
+
+
+@dataclass(frozen=True)
 class Origin:
     """The position before the first block (the genesis boundary).
 

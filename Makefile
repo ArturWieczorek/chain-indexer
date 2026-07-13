@@ -29,7 +29,7 @@ run:  ## Follow the chain and index it (available from chapter 09)
 	python -m chainidx.follow
 
 api:  ## Start the REST query API locally (available from chapter 13)
-	uvicorn chainidx.api:app --reload
+	uvicorn --factory chainidx.api:create_default_app --reload
 
 explorer:  ## Serve the block explorer UI (available from chapter 15)
 	python -m chainidx.explorer
