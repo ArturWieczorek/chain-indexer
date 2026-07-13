@@ -4,7 +4,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 `chNN`. Tick a box when its tag exists and its tests are green.
 
 - [x] ch00 - Orientation (scaffold, tooling, smoke test)
-- [ ] ch01 - The block and chain model
+- [x] ch01 - The block and chain model
 - [ ] ch02 - The fork problem
 - [ ] ch03 - SQLite schema and store
 - [ ] ch04 - Indexing transactions

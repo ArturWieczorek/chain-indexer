@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch01] - The block and chain model
+
+### Added
+
+- `chainidx.model`: immutable dataclasses `Asset`, `TxOut`, `TxIn`, `Tx`,
+  `Block`, `Point`, and `Tip` that describe a Cardano chain.
+- `Block.point` and `Block.links_onto`, the seed of fork detection.
+
 ## [ch00] - Orientation
 
 ### Added
