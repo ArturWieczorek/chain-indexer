@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>chain-indexer explorer</title>
+    <style>
+      :root {
+        --bg: #0f1420;
+        --panel: #171e2e;
+        --line: #26304a;
+        --text: #e6ebf5;
+        --muted: #8b97b3;
+        --accent: #6ea8fe;
+        --good: #4ec9a5;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        position: sticky;
+        top: 0;
+      }
+      header h1 { font-size: 1rem; margin: 0; }
+      header h1 a { color: var(--text); text-decoration: none; }
+      header .status { color: var(--muted); margin-left: auto; }
+      #search {
+        flex: 1;
+        max-width: 34rem;
+        padding: 0.5rem 0.75rem;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--text);
+        font: inherit;
+      }
+      main { padding: 1.5rem; max-width: 60rem; margin: 0 auto; }
+      h2 { font-size: 1rem; color: var(--muted); font-weight: 600; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td {
+        text-align: left;
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      th { color: var(--muted); font-weight: 600; }
+      td.wrap, th.wrap { white-space: normal; word-break: break-all; }
+      a { color: var(--accent); text-decoration: none; cursor: pointer; }
+      a:hover { text-decoration: underline; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        overflow-x: auto;
+      }
+      .kv { display: grid; grid-template-columns: 10rem 1fr; gap: 0.35rem 1rem; }
+      .kv div:nth-child(odd) { color: var(--muted); }
+      .kv div:nth-child(even) { word-break: break-all; }
+      .lovelace { color: var(--good); }
+      .muted { color: var(--muted); }
+      .pill {
+        display: inline-block;
+        padding: 0.05rem 0.5rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1><a href="#/">chain-indexer</a></h1>
+      <input id="search" placeholder="Search a block hash, tx hash, address, or stake address" />
+      <span class="status" id="status">connecting...</span>
+    </header>
+    <main id="app">Loading...</main>
+
+    <script>
+      const app = document.getElementById("app");
+      const statusEl = document.getElementById("status");
+
+      const api = async (path) => {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error(`${res.status}`);
+        return res.json();
+      };
+      const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      const ada = (l) => (l / 1_000_000).toLocaleString() + " ADA";
+      const short = (h) => (h && h.length > 20 ? h.slice(0, 12) + "..." + h.slice(-6) : h);
+      const link = (kind, id, label) => `<a href="#/${kind}/${id}">${esc(label || id)}</a>`;
+
+      async function refreshStatus() {
+        try {
+          const h = await api("/health");
+          statusEl.textContent = h.tip_height == null ? "no blocks yet" : `tip #${h.tip_height}`;
+        } catch {
+          statusEl.textContent = "offline";
+        }
+      }
+
+      async function home() {
+        const blocks = await api("/blocks?limit=25");
+        const rows = blocks
+          .map(
+            (b) =>
+              `<tr><td>${b.block_no}</td><td>${b.slot_no}</td>` +
+              `<td>${link("block", b.hash, short(b.hash))}</td>` +
+              `<td>${b.tx_count}</td></tr>`
+          )
+          .join("");
+        app.innerHTML =
+          `<h2>Latest blocks</h2><div class="panel"><table>` +
+          `<tr><th>Height</th><th>Slot</th><th>Hash</th><th>Txs</th></tr>${rows}</table></div>`;
+      }
+
+      async function block(hash) {
+        const b = await api(`/blocks/${hash}`);
+        const txs = b.tx_hashes.map((h) => `<tr><td class="wrap">${link("tx", h, h)}</td></tr>`).join("");
+        app.innerHTML =
+          `<h2>Block #${b.block_no}</h2><div class="panel"><div class="kv">` +
+          `<div>hash</div><div>${esc(b.hash)}</div>` +
+          `<div>slot</div><div>${b.slot_no}</div>` +
+          `<div>previous</div><div>${b.prev_hash ? link("block", b.prev_hash, b.prev_hash) : "<span class='muted'>origin</span>"}</div>` +
+          `<div>transactions</div><div>${b.tx_count}</div></div></div>` +
+          (txs ? `<h2>Transactions</h2><div class="panel"><table>${txs}</table></div>` : "");
+      }
+
+      async function tx(hash) {
+        const t = await api(`/txs/${hash}`);
+        const ins = t.inputs.length
+          ? t.inputs.map((i) => `<tr><td class="wrap">${link("tx", i.tx_id, short(i.tx_id))}#${i.index}</td></tr>`).join("")
+          : `<tr><td class="muted">no inputs</td></tr>`;
+        const outs = t.outputs
+          .map(
+            (o) =>
+              `<tr><td class="wrap">${link("address", o.address, short(o.address))}</td>` +
+              `<td class="lovelace">${ada(o.lovelace)}</td></tr>`
+          )
+          .join("");
+        app.innerHTML =
+          `<h2>Transaction</h2><div class="panel"><div class="kv">` +
+          `<div>id</div><div>${esc(t.tx_id)}</div>` +
+          `<div>block</div><div>${link("block", t.block_hash, t.block_hash)}</div></div></div>` +
+          `<h2>Inputs</h2><div class="panel"><table>${ins}</table></div>` +
+          `<h2>Outputs</h2><div class="panel"><table>${outs}</table></div>`;
+      }
+
+      async function address(addr) {
+        const a = await api(`/addresses/${addr}`);
+        const utxos = a.utxos.length
+          ? a.utxos
+              .map(
+                (o) =>
+                  `<tr><td class="lovelace">${ada(o.lovelace)}</td>` +
+                  `<td>${o.assets.map((x) => `<span class="pill">${esc(x.asset_name)} × ${x.quantity}</span>`).join(" ") || "<span class='muted'>-</span>"}</td></tr>`
+              )
+              .join("")
+          : `<tr><td class="muted" colspan="2">no unspent outputs</td></tr>`;
+        app.innerHTML =
+          `<h2>Address</h2><div class="panel"><div class="kv">` +
+          `<div>address</div><div>${esc(addr)}</div>` +
+          `<div>balance</div><div class="lovelace">${ada(a.balance)}</div></div></div>` +
+          `<h2>Unspent outputs</h2><div class="panel"><table>` +
+          `<tr><th>Value</th><th>Assets</th></tr>${utxos}</table></div>`;
+      }
+
+      async function router() {
+        await refreshStatus();
+        const parts = location.hash.replace(/^#\/?/, "").split("/");
+        try {
+          if (parts[0] === "block" && parts[1]) await block(parts[1]);
+          else if (parts[0] === "tx" && parts[1]) await tx(parts[1]);
+          else if (parts[0] === "address" && parts[1]) await address(parts[1]);
+          else await home();
+        } catch (e) {
+          app.innerHTML = `<div class="panel">Not found (${esc(e.message)}). <a href="#/">Back home</a>.</div>`;
+        }
+      }
+
+      document.getElementById("search").addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        const q = e.target.value.trim();
+        if (!q) return;
+        // Guess the kind: 64-hex looks like a block or tx hash; try block, the
+        // router falls back to a not-found panel with a link home. Addresses
+        // usually start with "addr" or "stake".
+        const kind = q.startsWith("addr") || q.startsWith("stake") ? "address" : /^[0-9a-f]{64}$/i.test(q) ? "block" : "address";
+        location.hash = `#/${kind}/${q}`;
+      });
+
+      window.addEventListener("hashchange", router);
+      router();
+    </script>
+  </body>
+</html>

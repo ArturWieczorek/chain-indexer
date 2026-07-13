@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch15] - The explorer
+
+### Added
+
+- `web/index.html`: a single-page, vanilla-JS block explorer over the REST API.
+- `chainidx.explorer.create_explorer_app`: the API plus the page at `/`;
+  `make explorer` serves it.
+
 ## [ch14] - The CLI
 
 ### Added
