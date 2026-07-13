@@ -26,9 +26,11 @@ that large sums cannot overflow; chapter 18 discusses the difference.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from typing import Protocol
 
-from chainidx.model import Block, Point, Tip, Tx
+from chainidx.indexers import Indexer, default_indexers
+from chainidx.model import Asset, Block, Point, Tip, Tx, TxOut
 
 
 class Store(Protocol):
@@ -48,6 +50,14 @@ class Store(Protocol):
 
     def block_count(self) -> int:
         """Return how many blocks are stored."""
+        ...
+
+    def balance(self, address: str) -> int:
+        """Return the unspent lovelace held by an address."""
+        ...
+
+    def utxos(self, address: str) -> tuple[TxOut, ...]:
+        """Return an address's unspent outputs."""
         ...
 
     def close(self) -> None:
@@ -82,6 +92,48 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             """,
         ),
     ),
+    (
+        2,
+        (
+            # Every table carries block_id directly, so the chapter 05 rollback
+            # engine can delete a block's rows with one uniform query per table.
+            # `consumed_by_tx_id` is NULL until the output is spent; an address
+            # balance is the sum of its outputs where it is still NULL.
+            """
+            CREATE TABLE tx_out (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                tx_id             INTEGER NOT NULL REFERENCES tx(id),
+                block_id          INTEGER NOT NULL REFERENCES block(id),
+                index_no          INTEGER NOT NULL,
+                address           TEXT    NOT NULL,
+                lovelace          INTEGER NOT NULL,
+                consumed_by_tx_id INTEGER REFERENCES tx(id)
+            )
+            """,
+            """
+            CREATE TABLE ma_tx_out (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                tx_out_id  INTEGER NOT NULL REFERENCES tx_out(id),
+                block_id   INTEGER NOT NULL REFERENCES block(id),
+                policy_id  TEXT    NOT NULL,
+                asset_name TEXT    NOT NULL,
+                quantity   INTEGER NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE tx_in (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                tx_in_id     INTEGER NOT NULL REFERENCES tx(id),
+                block_id     INTEGER NOT NULL REFERENCES block(id),
+                tx_out_hash  TEXT    NOT NULL,
+                tx_out_index INTEGER NOT NULL
+            )
+            """,
+            "CREATE INDEX idx_tx_out_address ON tx_out (address)",
+            "CREATE INDEX idx_tx_out_tx ON tx_out (tx_id, index_no)",
+            "CREATE INDEX idx_ma_tx_out_parent ON ma_tx_out (tx_out_id)",
+        ),
+    ),
 ]
 
 
@@ -102,12 +154,15 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
 class SqliteStore:
     """A store backed by SQLite. Satisfies the ``Store`` protocol."""
 
-    def __init__(self, path: str = ":memory:") -> None:
+    def __init__(self, path: str = ":memory:", indexers: Sequence[Indexer] | None = None) -> None:
         self._conn = sqlite3.connect(path)
         self._conn.row_factory = sqlite3.Row
         # Enforce foreign keys so a bad delete order is caught, not silently
         # allowed. Chapter 05 relies on this to prove leaf-first deletion.
         self._conn.execute("PRAGMA foreign_keys = ON")
+        self._indexers: tuple[Indexer, ...] = (
+            tuple(indexers) if indexers is not None else default_indexers()
+        )
         _run_migrations(self._conn)
 
     def apply_block(self, block: Block) -> None:
@@ -120,11 +175,16 @@ class SqliteStore:
                 (block.block_hash, block.slot_no, block.block_no, block.prev_hash, len(block.txs)),
             )
             block_id = cur.lastrowid
+            assert block_id is not None
             for index, tx in enumerate(block.txs):
-                self._conn.execute(
+                cur = self._conn.execute(
                     "INSERT INTO tx (hash, block_id, block_index) VALUES (?, ?, ?)",
                     (tx.tx_id, block_id, index),
                 )
+                tx_db_id = cur.lastrowid
+                assert tx_db_id is not None
+                for indexer in self._indexers:
+                    indexer.index_tx(self._conn, block_id, tx_db_id, tx)
 
     def get_block(self, block_hash: str) -> Block | None:
         row = self._conn.execute(
@@ -160,6 +220,34 @@ class SqliteStore:
     def block_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) AS n FROM block").fetchone()
         return int(row["n"])
+
+    def balance(self, address: str) -> int:
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(lovelace), 0) AS bal FROM tx_out "
+            "WHERE address = ? AND consumed_by_tx_id IS NULL",
+            (address,),
+        ).fetchone()
+        return int(row["bal"])
+
+    def utxos(self, address: str) -> tuple[TxOut, ...]:
+        rows = self._conn.execute(
+            "SELECT id, address, lovelace FROM tx_out "
+            "WHERE address = ? AND consumed_by_tx_id IS NULL ORDER BY id",
+            (address,),
+        ).fetchall()
+        outputs: list[TxOut] = []
+        for r in rows:
+            asset_rows = self._conn.execute(
+                "SELECT policy_id, asset_name, quantity FROM ma_tx_out "
+                "WHERE tx_out_id = ? ORDER BY id",
+                (r["id"],),
+            ).fetchall()
+            assets = tuple(
+                Asset(policy_id=a["policy_id"], asset_name=a["asset_name"], quantity=a["quantity"])
+                for a in asset_rows
+            )
+            outputs.append(TxOut(address=r["address"], lovelace=r["lovelace"], assets=assets))
+        return tuple(outputs)
 
     def close(self) -> None:
         self._conn.close()

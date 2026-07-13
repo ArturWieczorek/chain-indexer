@@ -5,6 +5,16 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch04] - Indexing transactions
+
+### Added
+
+- `chainidx.indexers`: the pluggable indexer pipeline with `OutputIndexer` and
+  `InputIndexer`.
+- Schema migration 2: `tx_out`, `ma_tx_out`, `tx_in`, all block-keyed; spend
+  tracking via `consumed_by_tx_id`.
+- `SqliteStore.balance` and `SqliteStore.utxos` derived views.
+
 ## [ch03] - SQLite schema and store
 
 ### Added
