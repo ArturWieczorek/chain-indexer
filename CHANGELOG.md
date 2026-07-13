@@ -5,6 +5,13 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch14] - The CLI
+
+### Added
+
+- `chainidx.cli`: a click-based command-line interface (tip, block, tx, balance,
+  pools, account, governance, and a live `follow` command).
+
 ## [ch13] - The query API
 
 ### Added

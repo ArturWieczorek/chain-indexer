@@ -17,7 +17,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch11 - Ouroboros wire I (mux and handshake)
 - [x] ch12 - Ouroboros wire II (chain-sync)
 - [x] ch13 - The query API
-- [ ] ch14 - The CLI
+- [x] ch14 - The CLI
 - [ ] ch15 - The explorer
 - [ ] ch16 - Live view and analytics
 - [ ] ch17 - A real cluster and forced reorgs
