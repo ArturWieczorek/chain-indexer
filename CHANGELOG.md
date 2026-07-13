@@ -5,6 +5,15 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch11] - Ouroboros wire I (mux and handshake)
+
+### Added
+
+- `chainidx.mux`: mux header pack/unpack and a reassembling `MuxConnection`.
+- `chainidx.handshake`: version negotiation (`propose_message`, `parse_reply`,
+  `negotiate`), confirmed against a live node.
+- An integration test that handshakes with a real node socket.
+
 ## [ch10] - CBOR and real blocks
 
 ### Added
