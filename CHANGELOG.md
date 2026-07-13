@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch17] - A real cluster and forced reorgs
+
+### Added
+
+- `tests/test_reorg_integration.py`: forces a real node-issued rollback via
+  chain-sync re-intersection and verifies the indexer rewinds and re-indexes to
+  a byte-identical tip.
+
 ## [ch16] - Live view and analytics
 
 ### Added
