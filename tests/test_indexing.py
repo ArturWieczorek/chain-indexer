@@ -93,7 +93,9 @@ def test_utxos_lists_only_unspent_outputs() -> None:
     fund = Tx(tx_id="tx1", outputs=(TxOut("alice", 1_000_000), TxOut("alice", 2_000_000)))
     store.apply_block(blk(1, "b1", "genesis", (fund,)))
     # Spend only the first output.
-    spend = Tx(tx_id="tx2", inputs=(TxIn(tx_id="tx1", index=0),), outputs=(TxOut("bob", 1_000_000),))
+    spend = Tx(
+        tx_id="tx2", inputs=(TxIn(tx_id="tx1", index=0),), outputs=(TxOut("bob", 1_000_000),)
+    )
     store.apply_block(blk(2, "b2", "b1", (spend,)))
 
     alice_utxos = store.utxos("alice")

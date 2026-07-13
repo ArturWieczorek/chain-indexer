@@ -31,7 +31,6 @@ import sqlite3
 from typing import Protocol
 
 from chainidx.model import (
-    DRepDeregistration,
     DRepRegistration,
     PoolRegistration,
     PoolRetirement,

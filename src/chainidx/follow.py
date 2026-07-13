@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 from chainidx.event import EventBus, describe_block
 from chainidx.model import ORIGIN, Origin, Point
-from chainidx.source import ChainSource, RollBackward, RollForward, SourceExhausted
+from chainidx.source import ChainSource, RollBackward, RollForward, SourceExhaustedError
 from chainidx.store import Store
 
 
@@ -79,7 +79,7 @@ class Follower:
         while max_events is None or self.stats.events < max_events:
             try:
                 event = await self._source.next_event()
-            except SourceExhausted:
+            except SourceExhaustedError:
                 break
             self.apply(event)
         return self.stats
@@ -98,7 +98,7 @@ async def _main() -> None:  # pragma: no cover
             await follower.run(max_events=follower.stats.events + 100)
             tip = store.tip()
             height = tip.block_no if tip is not None else 0
-            print(  # noqa: T201 - this is a CLI entry point
+            print(
                 f"tip height {height}, applied {follower.stats.applied}, "
                 f"rolled back {follower.stats.rolled_back}"
             )

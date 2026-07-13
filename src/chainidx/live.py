@@ -64,7 +64,7 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     follower = Follower(source, store, bus=bus)
     app = create_live_app(store, bus)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
-    print("live view on http://127.0.0.1:8000/live")  # noqa: T201
+    print("live view on http://127.0.0.1:8000/live")
     await asyncio.gather(server.serve(), follower.run())
 
 

@@ -22,4 +22,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch16 - Live view and analytics
 - [x] ch17 - A real cluster and forced reorgs
 - [x] ch18 - Design and tradeoffs
-- [ ] ch19 - Publish (v1.0.0)
+- [x] ch19 - Publish (v1.0.0)

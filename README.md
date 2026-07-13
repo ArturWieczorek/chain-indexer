@@ -85,25 +85,25 @@ which is deliberately out of scope for v1. See
 | Chapter | Title | What you build |
 | ------- | ----- | -------------- |
 | [00](chapters/00-orientation/) | Orientation | Scaffold, tooling, the mental model |
-| 01 | The block and chain model | The domain types and how blocks link up |
-| 02 | The fork problem | Detect a fork, find the rollback point |
-| 03 | SQLite schema and store | The `Store` interface and the schema |
-| 04 | Indexing transactions | Outputs, inputs, assets, address balances |
-| 05 | Rollbacks and reorgs | The headline: undo indexed state correctly |
-| 06 | Shelley staking | Index stake and pool certificates |
-| 07 | Conway governance | Index DReps, votes, governance actions |
-| 08 | A source and the Ogmios client | First real data end to end |
-| 09 | The sync loop | Follow the tip, resume, stay consistent |
-| 10 | CBOR and real blocks | Decode real Cardano blocks |
-| 11 | Ouroboros wire I | Mux framing and the handshake, by hand |
-| 12 | Ouroboros wire II | Chain-sync by hand, replacing Ogmios |
-| 13 | The query API | A Blockfrost-style REST API |
-| 14 | The CLI | Query the index from the terminal |
-| 15 | The explorer | A browsable block explorer UI |
-| 16 | Live view and analytics | New blocks and reorgs, live over WebSocket |
-| 17 | A real cluster | Force a reorg with cardonnay and watch it roll back |
-| 18 | Design and tradeoffs | Where this sits next to db-sync and Dolos |
-| 19 | Publish | Tag v1.0.0 |
+| [01](chapters/01-block-and-chain-model/) | The block and chain model | The domain types and how blocks link up |
+| [02](chapters/02-the-fork-problem/) | The fork problem | Detect a fork, find the rollback point |
+| [03](chapters/03-sqlite-schema-and-store/) | SQLite schema and store | The `Store` interface and the schema |
+| [04](chapters/04-indexing-transactions/) | Indexing transactions | Outputs, inputs, assets, address balances |
+| [05](chapters/05-rollbacks-and-reorgs/) | Rollbacks and reorgs | The headline: undo indexed state correctly |
+| [06](chapters/06-shelley-staking/) | Shelley staking | Index stake and pool certificates |
+| [07](chapters/07-conway-governance/) | Conway governance | Index DReps, votes, governance actions |
+| [08](chapters/08-a-source-and-ogmios/) | A source and the Ogmios client | First real data end to end |
+| [09](chapters/09-the-sync-loop/) | The sync loop | Follow the tip, resume, stay consistent |
+| [10](chapters/10-cbor-and-real-blocks/) | CBOR and real blocks | Decode real Cardano blocks |
+| [11](chapters/11-ouroboros-wire-mux-handshake/) | Ouroboros wire I | Mux framing and the handshake, by hand |
+| [12](chapters/12-ouroboros-wire-chain-sync/) | Ouroboros wire II | Chain-sync by hand, replacing Ogmios |
+| [13](chapters/13-the-query-api/) | The query API | A Blockfrost-style REST API |
+| [14](chapters/14-the-cli/) | The CLI | Query the index from the terminal |
+| [15](chapters/15-the-explorer/) | The explorer | A browsable block explorer UI |
+| [16](chapters/16-live-view-and-analytics/) | Live view and analytics | New blocks and reorgs, live over WebSocket |
+| [17](chapters/17-a-real-cluster-and-reorgs/) | A real cluster | Force a reorg with cardonnay and watch it roll back |
+| [18](chapters/18-design-and-tradeoffs/) | Design and tradeoffs | Where this sits next to db-sync and Dolos |
+| [19](chapters/19-publish/) | Publish | Tag v1.0.0 |
 
 ## Getting started
 
@@ -116,6 +116,30 @@ make check
 
 `make check` runs the linter, the type checker, and the tests - exactly what CI
 runs. It should be green at every chapter tag.
+
+## Run it against a local cluster
+
+The integration path uses [cardonnay](https://github.com/mkoura/cardonnay) to run
+a real local Cardano node. Once one is up:
+
+```bash
+source <(cardonnay control print-env -i 0)   # sets CARDANO_NODE_SOCKET_PATH
+
+# Follow the chain with our own from-scratch protocol client and index it:
+chainidx --db chain.db follow --source node --events 500
+
+# Query it:
+chainidx --db chain.db tip
+chainidx --db chain.db pools
+
+# Browse it:
+CHAINIDX_DB=chain.db make explorer   # explorer at http://127.0.0.1:8000
+make live                            # live dashboard at /live
+```
+
+The unit tests need none of this - they are fully offline and deterministic. The
+integration tests (a real handshake, a follow via Ogmios, a follow via our own
+protocol, and a forced rollback) run only when a node socket is present.
 
 ## License
 

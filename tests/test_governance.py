@@ -28,9 +28,7 @@ def test_dreps_register_and_retire() -> None:
     )
     assert store.dreps() == ("drep1",)
 
-    store.apply_block(
-        blk(2, "b2", "b1", (Tx("tx2", certificates=(DRepDeregistration("drep1"),)),))
-    )
+    store.apply_block(blk(2, "b2", "b1", (Tx("tx2", certificates=(DRepDeregistration("drep1"),)),)))
     assert store.dreps() == ()
     store.close()
 

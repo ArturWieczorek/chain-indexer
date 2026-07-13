@@ -118,8 +118,7 @@ def create_app(store: Store) -> FastAPI:
     @app.get("/governance/actions")
     def governance_actions() -> list[dict[str, Any]]:
         return [
-            {"gov_action_id": g, "tally": store.vote_tally(g)}
-            for g in store.governance_actions()
+            {"gov_action_id": g, "tally": store.vote_tally(g)} for g in store.governance_actions()
         ]
 
     return app

@@ -3,7 +3,19 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
-## [Unreleased]
+## [1.0.0] - Publish
+
+The complete course: a reorg-aware Cardano chain indexer with a from-scratch
+Ouroboros chain-sync client, a Blockfrost-style REST API, a CLI, and a browsable,
+live-updating block explorer. Chapters ch00 through ch19; `make check` green at
+every tag; 100 percent coverage on the pure-logic core.
+
+## [ch19] - Publish
+
+### Changed
+
+- README chapter table fully linked; added a "run it live" section; changelog
+  finalized and tagged v1.0.0.
 
 ## [ch18] - Design and tradeoffs
 

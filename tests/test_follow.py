@@ -69,7 +69,10 @@ async def test_follower_handles_a_reorg_through_the_loop() -> None:
 
 async def test_follower_respects_max_events() -> None:
     store = SqliteStore()
-    forward: list[ChainEvent] = [RollBackward(ORIGIN), *(RollForward(blk(i, f"b{i}", "p")) for i in range(1, 6))]
+    forward: list[ChainEvent] = [
+        RollBackward(ORIGIN),
+        *(RollForward(blk(i, f"b{i}", "p")) for i in range(1, 6)),
+    ]
     follower = Follower(FakeSource(forward, known_points=[ORIGIN]), store)
 
     stats = await follower.run(max_events=3)

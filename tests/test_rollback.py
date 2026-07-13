@@ -101,16 +101,18 @@ def test_reorg_leaves_the_database_identical_to_the_winning_branch() -> None:
     genesis_tx = Tx("t1", outputs=(TxOut("alice", 10_000_000),))
 
     # Losing branch: b2 (alice -> bob), b3 (bob -> carol).
-    losing = [
-        blk(2, "b2", "b1", (Tx("t2", inputs=(TxIn("t1", 0),), outputs=(TxOut("bob", 10_000_000),)),)),
-        blk(3, "b3", "b2", (Tx("t3", inputs=(TxIn("t2", 0),), outputs=(TxOut("carol", 10_000_000),)),)),
-    ]
+    t2 = Tx("t2", inputs=(TxIn("t1", 0),), outputs=(TxOut("bob", 10_000_000),))
+    t3 = Tx("t3", inputs=(TxIn("t2", 0),), outputs=(TxOut("carol", 10_000_000),))
+    losing = [blk(2, "b2", "b1", (t2,)), blk(3, "b3", "b2", (t3,))]
+
     # Winning branch: b2x (alice -> dave), b3x, b4x.
-    winning = [
-        blk(2, "b2x", "b1", (Tx("t2x", inputs=(TxIn("t1", 0),), outputs=(TxOut("dave", 10_000_000),)),)),
-        blk(3, "b3x", "b2x", (Tx("t3x", inputs=(TxIn("t2x", 0),), outputs=(TxOut("erin", 6_000_000), TxOut("dave", 4_000_000))),)),
-        blk(4, "b4x", "b3x"),
-    ]
+    t2x = Tx("t2x", inputs=(TxIn("t1", 0),), outputs=(TxOut("dave", 10_000_000),))
+    t3x = Tx(
+        "t3x",
+        inputs=(TxIn("t2x", 0),),
+        outputs=(TxOut("erin", 6_000_000), TxOut("dave", 4_000_000)),
+    )
+    winning = [blk(2, "b2x", "b1", (t2x,)), blk(3, "b3x", "b2x", (t3x,)), blk(4, "b4x", "b3x")]
 
     # Store A: sees the losing branch, then reorgs to the winning branch.
     reorged = SqliteStore()
@@ -137,7 +139,8 @@ def test_reorg_leaves_the_database_identical_to_the_winning_branch() -> None:
 
     reorged_tip = reorged.tip()
     clean_tip = clean.tip()
-    assert reorged_tip is not None and clean_tip is not None
+    assert reorged_tip is not None
+    assert clean_tip is not None
     assert reorged_tip.block_no == clean_tip.block_no == 4
     assert reorged.block_count() == clean.block_count() == 4
 

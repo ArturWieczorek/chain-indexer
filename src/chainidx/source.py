@@ -46,7 +46,7 @@ class RollBackward:
 ChainEvent = RollForward | RollBackward
 
 
-class SourceExhausted(Exception):
+class SourceExhaustedError(Exception):
     """Raised by a finite source that has run out of events.
 
     A live source never raises this - it simply waits for the next block. It is
@@ -90,7 +90,7 @@ class FakeSource:
 
     async def next_event(self) -> ChainEvent:
         if self._index >= len(self._events):
-            raise SourceExhausted
+            raise SourceExhaustedError
         event = self._events[self._index]
         self._index += 1
         return event

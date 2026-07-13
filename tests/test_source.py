@@ -8,7 +8,7 @@ from chainidx.source import (
     FakeSource,
     RollBackward,
     RollForward,
-    SourceExhausted,
+    SourceExhaustedError,
 )
 
 
@@ -33,7 +33,7 @@ async def test_fake_source_yields_scripted_events_then_stops() -> None:
     assert isinstance(second, RollBackward)
     assert second.point == ORIGIN
 
-    with pytest.raises(SourceExhausted):
+    with pytest.raises(SourceExhaustedError):
         await source.next_event()
 
     await source.close()

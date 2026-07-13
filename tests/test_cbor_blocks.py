@@ -7,8 +7,7 @@ hashes, so these tests prove we decode identity correctly, not just plausibly.
 
 import io
 from pathlib import Path
-
-from typing import Any, cast
+from typing import cast
 
 import cbor2
 

@@ -19,6 +19,7 @@ from chainidx.source import RollBackward, RollForward
 
 FIXTURES = Path(__file__).parent / "fixtures"
 _HASH = "aa" * 32
+_REAL_BLOCK_HASH = "7058a7c4d6faf83b7f563ade99f38a30c021c8701aad16f6f51d6bb5865d8608"
 
 
 def test_point_round_trips_including_origin() -> None:
@@ -52,7 +53,7 @@ def test_parse_next_reply_roll_forward_decodes_a_real_block() -> None:
     block_tag = cbor2.loads((FIXTURES / "node_block_txs.cbor").read_bytes())
     event = parse_next_reply([2, block_tag, "tip"])
     assert isinstance(event, RollForward)
-    assert event.block.block_hash == "7058a7c4d6faf83b7f563ade99f38a30c021c8701aad16f6f51d6bb5865d8608"
+    assert event.block.block_hash == _REAL_BLOCK_HASH
 
 
 def test_parse_next_reply_roll_backward_and_await() -> None:

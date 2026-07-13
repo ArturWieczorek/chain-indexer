@@ -22,8 +22,8 @@ from collections.abc import Sequence
 
 from chainidx import chainsync
 from chainidx.handshake import negotiate
-from chainidx.mux import PROTOCOL_CHAIN_SYNC, MuxConnection
 from chainidx.model import Origin, Point
+from chainidx.mux import PROTOCOL_CHAIN_SYNC, MuxConnection
 from chainidx.source import ChainEvent
 
 # cardonnay's local clusters use network magic 42.
@@ -50,7 +50,8 @@ class NodeSource:
 
     async def find_intersection(self, points: Sequence[Point | Origin]) -> Point | Origin | None:
         mux = await self._connect()
-        await mux.send(PROTOCOL_CHAIN_SYNC, chainsync.encode(chainsync.find_intersect_message(list(points))))
+        message = chainsync.find_intersect_message(list(points))
+        await mux.send(PROTOCOL_CHAIN_SYNC, chainsync.encode(message))
         return chainsync.parse_intersect_reply(await mux.receive(PROTOCOL_CHAIN_SYNC))
 
     async def next_event(self) -> ChainEvent:
