@@ -19,7 +19,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch13 - The query API
 - [x] ch14 - The CLI
 - [x] ch15 - The explorer
-- [ ] ch16 - Live view and analytics
+- [x] ch16 - Live view and analytics
 - [ ] ch17 - A real cluster and forced reorgs
 - [ ] ch18 - Design and tradeoffs
 - [ ] ch19 - Publish (v1.0.0)

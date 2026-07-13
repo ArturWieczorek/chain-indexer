@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+from chainidx.event import EventBus, describe_block
 from chainidx.model import ORIGIN, Origin, Point
 from chainidx.source import ChainSource, RollBackward, RollForward, SourceExhausted
 from chainidx.store import Store
@@ -38,9 +39,10 @@ class FollowStats:
 class Follower:
     """Drives a ``ChainSource`` into a ``Store``."""
 
-    def __init__(self, source: ChainSource, store: Store) -> None:
+    def __init__(self, source: ChainSource, store: Store, bus: EventBus | None = None) -> None:
         self._source = source
         self._store = store
+        self._bus = bus
         self.stats = FollowStats()
 
     async def resume(self) -> Point | Origin | None:
@@ -54,11 +56,17 @@ class Follower:
         if isinstance(event, RollForward):
             self._store.apply_block(event.block)
             self.stats.applied += 1
+            if self._bus is not None:
+                for domain_event in describe_block(event.block):
+                    self._bus.publish(domain_event)
         else:
             # Translate the source's Origin marker to the store's "None = origin".
             target = None if isinstance(event.point, Origin) else event.point
             removed = self._store.rollback_to(target)
             self.stats.rolled_back += len(removed)
+            if self._bus is not None:
+                # A retraction event: the reorg story, streamed live.
+                self._bus.publish({"type": "rollback", "removed": removed, "count": len(removed)})
 
     async def run(self, max_events: int | None = None) -> FollowStats:
         """Resume, then process events until exhausted or ``max_events`` reached.

@@ -5,6 +5,15 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch16] - Live view and analytics
+
+### Added
+
+- `chainidx.event`: an `EventBus` and `describe_block` (the event seam); the
+  follower publishes forward events and rollback retractions.
+- `chainidx.live`: a `/stream` WebSocket and a `/live` dashboard page with stat
+  tiles, a tx-volume sparkline, and reorg highlighting.
+
 ## [ch15] - The explorer
 
 ### Added

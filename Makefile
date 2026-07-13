@@ -2,7 +2,7 @@
 # These assume a virtual environment. Create one with:
 #   python3 -m venv .venv && source .venv/bin/activate
 
-.PHONY: help install fmt lint type test check run api explorer clean
+.PHONY: help install fmt lint type test check run api explorer live clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -33,6 +33,9 @@ api:  ## Start the REST query API locally (available from chapter 13)
 
 explorer:  ## Serve the block explorer UI (available from chapter 15)
 	python -m chainidx.explorer
+
+live:  ## Follow a live chain and serve the live dashboard (available from chapter 16)
+	python -m chainidx.live
 
 clean:  ## Remove caches and local databases
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage coverage.xml
