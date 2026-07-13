@@ -5,6 +5,16 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch08] - A source and the Ogmios client
+
+### Added
+
+- `chainidx.source`: `RollForward`/`RollBackward` events, the `ChainSource`
+  interface, an `Origin` marker, and a scripted `FakeSource`.
+- `chainidx.ogmios_parse` (pure, covered) and `chainidx.ogmios.OgmiosSource`
+  (integration-only), with real captured fixtures under `tests/fixtures/`.
+- An integration test that follows a real chain from the origin via Ogmios.
+
 ## [ch07] - Conway governance
 
 ### Added

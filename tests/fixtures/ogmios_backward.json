@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "method": "nextBlock",
+  "result": {
+    "direction": "backward",
+    "point": "origin",
+    "tip": {
+      "slot": 36690,
+      "id": "6fd09e58ac9aa132c6c0a17ccd26d63a98ba59da51c474c6f5533b6a9d29bc8e",
+      "height": 3717
+    }
+  },
+  "id": null
+}

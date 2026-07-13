@@ -192,6 +192,20 @@ class Point:
 
 
 @dataclass(frozen=True)
+class Origin:
+    """The position before the first block (the genesis boundary).
+
+    Chain-sync can roll us back to before block one. We mark that with this value
+    rather than reusing ``None``, which we keep for "no intersection found". Being
+    a frozen dataclass, all ``Origin()`` values are equal and hashable, so
+    ``ORIGIN`` behaves like a singleton for comparisons.
+    """
+
+
+ORIGIN = Origin()
+
+
+@dataclass(frozen=True)
 class Tip:
     """The newest block the node knows about: its point and its height.
 

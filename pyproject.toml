@@ -92,9 +92,10 @@ markers = [
 [tool.coverage.run]
 # Modules that only work against a live node or Ogmios are exercised by the
 # integration tests (run manually against a cardonnay cluster), so they are
-# left out of the unit-test coverage measurement. This list grows as those
-# chapters land (08, 11, 12).
-omit = []
+# left out of the unit-test coverage measurement. The pure parsing logic lives
+# in separate modules (e.g. ogmios_parse.py) that ARE covered. This list grows
+# as those chapters land (08, 11, 12).
+omit = ["src/chainidx/ogmios.py"]
 
 [tool.coverage.report]
 show_missing = true
