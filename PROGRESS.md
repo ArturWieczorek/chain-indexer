@@ -12,7 +12,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch06 - Shelley staking
 - [x] ch07 - Conway governance
 - [x] ch08 - A source and the Ogmios client
-- [ ] ch09 - The sync loop
+- [x] ch09 - The sync loop
 - [ ] ch10 - CBOR and real blocks
 - [ ] ch11 - Ouroboros wire I (mux and handshake)
 - [ ] ch12 - Ouroboros wire II (chain-sync)

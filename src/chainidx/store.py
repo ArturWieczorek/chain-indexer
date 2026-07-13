@@ -64,6 +64,10 @@ class Store(Protocol):
         """Undo every block after ``point``; return removed hashes, newest-first."""
         ...
 
+    def recent_points(self, limit: int = 10) -> list[Point]:
+        """Return the newest stored points, newest first, for resuming."""
+        ...
+
     def pools(self) -> tuple[str, ...]:
         """Return the pool ids that are registered and not retired."""
         ...
@@ -450,6 +454,12 @@ class SqliteStore:
             self._conn.execute("DELETE FROM block WHERE id > ?", (target_id,))
 
         return removed
+
+    def recent_points(self, limit: int = 10) -> list[Point]:
+        rows = self._conn.execute(
+            "SELECT hash, slot_no FROM block ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [Point(slot_no=r["slot_no"], block_hash=r["hash"]) for r in rows]
 
     def pools(self) -> tuple[str, ...]:
         # A pool counts as active if it has a registration and no retirement.

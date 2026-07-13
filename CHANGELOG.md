@@ -5,6 +5,15 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch09] - The sync loop
+
+### Added
+
+- `chainidx.follow.Follower`: resume via intersection, then loop applying
+  roll-forward (index) and roll-backward (reorg) events, keeping stats.
+- `Store.recent_points` for resuming; `make run` entry point.
+- An integration test that follows a real chain via Ogmios into a SQLite store.
+
 ## [ch08] - A source and the Ogmios client
 
 ### Added
