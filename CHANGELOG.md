@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch02] - The fork problem
+
+### Added
+
+- `chainidx.chain.Chain`: an in-memory chain with `add_block`, `has_point`,
+  `find_intersection`, `rollback_to`, and `points`.
+- `ForkError`, raised when a block does not build on the current tip.
+
 ## [ch01] - The block and chain model
 
 ### Added
