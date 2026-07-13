@@ -10,7 +10,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch04 - Indexing transactions
 - [x] ch05 - Rollbacks and reorgs
 - [x] ch06 - Shelley staking
-- [ ] ch07 - Conway governance
+- [x] ch07 - Conway governance
 - [ ] ch08 - A source and the Ogmios client
 - [ ] ch09 - The sync loop
 - [ ] ch10 - CBOR and real blocks

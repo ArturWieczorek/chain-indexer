@@ -76,6 +76,18 @@ class Store(Protocol):
         """Return whether a stake address is currently registered."""
         ...
 
+    def dreps(self) -> tuple[str, ...]:
+        """Return the DRep ids that are registered and not retired."""
+        ...
+
+    def governance_actions(self) -> tuple[str, ...]:
+        """Return the ids of all proposed governance actions."""
+        ...
+
+    def vote_tally(self, gov_action_id: str) -> dict[str, int]:
+        """Return a count of Yes/No/Abstain votes for a governance action."""
+        ...
+
     def close(self) -> None:
         """Release the underlying resources."""
         ...
@@ -206,6 +218,53 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_delegation_addr ON delegation (addr)",
         ),
     ),
+    (
+        4,
+        (
+            # Conway governance: DRep certificates, action proposals, and votes.
+            # Block-keyed like everything else.
+            """
+            CREATE TABLE drep_registration (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id INTEGER NOT NULL REFERENCES block(id),
+                tx_id    INTEGER NOT NULL REFERENCES tx(id),
+                drep_id  TEXT    NOT NULL,
+                deposit  INTEGER NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE drep_deregistration (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id INTEGER NOT NULL REFERENCES block(id),
+                tx_id    INTEGER NOT NULL REFERENCES tx(id),
+                drep_id  TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE gov_action_proposal (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id      INTEGER NOT NULL REFERENCES block(id),
+                tx_id         INTEGER NOT NULL REFERENCES tx(id),
+                gov_action_id TEXT    NOT NULL,
+                action_type   TEXT    NOT NULL,
+                deposit       INTEGER NOT NULL,
+                return_addr   TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE voting_procedure (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id      INTEGER NOT NULL REFERENCES block(id),
+                tx_id         INTEGER NOT NULL REFERENCES tx(id),
+                gov_action_id TEXT    NOT NULL,
+                voter_role    TEXT    NOT NULL,
+                voter_id      TEXT    NOT NULL,
+                vote          TEXT    NOT NULL
+            )
+            """,
+            "CREATE INDEX idx_vote_action ON voting_procedure (gov_action_id)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -219,6 +278,10 @@ _ROLLBACK_TABLES: tuple[str, ...] = (
     "delegation",
     "pool_registration",
     "pool_retirement",
+    "drep_registration",
+    "drep_deregistration",
+    "gov_action_proposal",
+    "voting_procedure",
     "tx",
 )
 
@@ -420,6 +483,28 @@ class SqliteStore:
             "SELECT MAX(tx_id) AS m FROM stake_deregistration WHERE addr = ?", (stake_address,)
         ).fetchone()["m"]
         return dereg is None or reg > dereg
+
+    def dreps(self) -> tuple[str, ...]:
+        rows = self._conn.execute(
+            "SELECT DISTINCT drep_id FROM drep_registration "
+            "WHERE drep_id NOT IN (SELECT drep_id FROM drep_deregistration) "
+            "ORDER BY drep_id"
+        ).fetchall()
+        return tuple(r["drep_id"] for r in rows)
+
+    def governance_actions(self) -> tuple[str, ...]:
+        rows = self._conn.execute(
+            "SELECT gov_action_id FROM gov_action_proposal ORDER BY id"
+        ).fetchall()
+        return tuple(r["gov_action_id"] for r in rows)
+
+    def vote_tally(self, gov_action_id: str) -> dict[str, int]:
+        rows = self._conn.execute(
+            "SELECT vote, COUNT(*) AS n FROM voting_procedure "
+            "WHERE gov_action_id = ? GROUP BY vote",
+            (gov_action_id,),
+        ).fetchall()
+        return {r["vote"]: int(r["n"]) for r in rows}
 
     def close(self) -> None:
         self._conn.close()

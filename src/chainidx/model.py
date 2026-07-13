@@ -103,14 +103,60 @@ class PoolRetirement:
     retiring_epoch: int
 
 
-# A certificate is any one of the above. Transactions carry a list of them.
+@dataclass(frozen=True)
+class DRepRegistration:
+    """A delegated representative registering (Conway governance, chapter 07)."""
+
+    drep_id: str
+    deposit: int
+
+
+@dataclass(frozen=True)
+class DRepDeregistration:
+    """A delegated representative retiring (chapter 07)."""
+
+    drep_id: str
+
+
+# A certificate is any one of these. Transactions carry a list of them.
 Certificate = (
     StakeRegistration
     | StakeDeregistration
     | StakeDelegation
     | PoolRegistration
     | PoolRetirement
+    | DRepRegistration
+    | DRepDeregistration
 )
+
+
+@dataclass(frozen=True)
+class GovActionProposal:
+    """A governance action proposed on-chain (chapter 07).
+
+    ``action_type`` is one of Cardano's governance action kinds, for example
+    ``ParameterChange``, ``TreasuryWithdrawals``, ``NoConfidence``,
+    ``NewConstitution``, or ``InfoAction``.
+    """
+
+    gov_action_id: str
+    action_type: str
+    deposit: int
+    return_address: str
+
+
+@dataclass(frozen=True)
+class GovVote:
+    """A vote cast on a governance action (chapter 07).
+
+    ``voter_role`` is ``ConstitutionalCommittee``, ``DRep``, or ``SPO``.
+    ``vote`` is ``Yes``, ``No``, or ``Abstain``.
+    """
+
+    gov_action_id: str
+    voter_role: str
+    voter_id: str
+    vote: str
 
 
 @dataclass(frozen=True)
@@ -127,6 +173,8 @@ class Tx:
     inputs: tuple[TxIn, ...] = ()
     outputs: tuple[TxOut, ...] = ()
     certificates: tuple[Certificate, ...] = ()
+    proposals: tuple[GovActionProposal, ...] = ()
+    votes: tuple[GovVote, ...] = ()
 
 
 @dataclass(frozen=True)

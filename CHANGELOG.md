@@ -5,6 +5,16 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch07] - Conway governance
+
+### Added
+
+- Governance model: `DRepRegistration`, `DRepDeregistration`,
+  `GovActionProposal`, `GovVote`, plus `Tx.proposals` and `Tx.votes`.
+- `GovIndexer` and DRep handling in `CertIndexer`; migration 4 (governance
+  tables), wired into the rollback loop.
+- Derived views: `dreps`, `governance_actions`, `vote_tally`.
+
 ## [ch06] - Shelley staking
 
 ### Added

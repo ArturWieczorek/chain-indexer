@@ -31,6 +31,8 @@ import sqlite3
 from typing import Protocol
 
 from chainidx.model import (
+    DRepDeregistration,
+    DRepRegistration,
     PoolRegistration,
     PoolRetirement,
     StakeDelegation,
@@ -126,14 +128,64 @@ class CertIndexer:
                         cert.reward_address,
                     ),
                 )
-            else:  # PoolRetirement - the type checker knows this is the last case
+            elif isinstance(cert, PoolRetirement):
                 conn.execute(
                     "INSERT INTO pool_retirement (block_id, tx_id, pool_id, retiring_epoch) "
                     "VALUES (?, ?, ?, ?)",
                     (block_id, tx_db_id, cert.pool_id, cert.retiring_epoch),
                 )
+            elif isinstance(cert, DRepRegistration):
+                conn.execute(
+                    "INSERT INTO drep_registration (block_id, tx_id, drep_id, deposit) "
+                    "VALUES (?, ?, ?, ?)",
+                    (block_id, tx_db_id, cert.drep_id, cert.deposit),
+                )
+            else:  # DRepDeregistration - the type checker knows this is the last case
+                conn.execute(
+                    "INSERT INTO drep_deregistration (block_id, tx_id, drep_id) VALUES (?, ?, ?)",
+                    (block_id, tx_db_id, cert.drep_id),
+                )
+
+
+class GovIndexer:
+    """Records Conway governance: action proposals and votes.
+
+    Proposals and votes are not certificates; they are their own fields in a
+    Conway transaction body. So they get their own indexer, added to the
+    pipeline alongside the others.
+    """
+
+    def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
+        for proposal in tx.proposals:
+            conn.execute(
+                "INSERT INTO gov_action_proposal "
+                "(block_id, tx_id, gov_action_id, action_type, deposit, return_addr) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    block_id,
+                    tx_db_id,
+                    proposal.gov_action_id,
+                    proposal.action_type,
+                    proposal.deposit,
+                    proposal.return_address,
+                ),
+            )
+        for vote in tx.votes:
+            conn.execute(
+                "INSERT INTO voting_procedure "
+                "(block_id, tx_id, gov_action_id, voter_role, voter_id, vote) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    block_id,
+                    tx_db_id,
+                    vote.gov_action_id,
+                    vote.voter_role,
+                    vote.voter_id,
+                    vote.vote,
+                ),
+            )
 
 
 def default_indexers() -> tuple[Indexer, ...]:
     """The indexers a store runs by default, in the order they must run."""
-    return (OutputIndexer(), InputIndexer(), CertIndexer())
+    return (OutputIndexer(), InputIndexer(), CertIndexer(), GovIndexer())
