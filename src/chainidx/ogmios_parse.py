@@ -128,7 +128,7 @@ def parse_block(block: Json) -> Block:
 
 def parse_point(point: Json | str) -> Point | Origin:
     """Turn an Ogmios point (``"origin"`` or ``{"slot", "id"}``) into ours."""
-    if point == "origin":
+    if isinstance(point, str):
         return Origin()
     return Point(slot_no=int(point["slot"]), block_hash=point["id"])
 

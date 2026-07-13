@@ -4,6 +4,7 @@ import pytest
 
 from chainidx.model import ORIGIN, Block, Origin, Point
 from chainidx.source import (
+    ChainEvent,
     FakeSource,
     RollBackward,
     RollForward,
@@ -21,7 +22,7 @@ def test_origin_is_a_value_like_singleton() -> None:
 
 
 async def test_fake_source_yields_scripted_events_then_stops() -> None:
-    events = [RollForward(a_block("b1")), RollBackward(ORIGIN)]
+    events: list[ChainEvent] = [RollForward(a_block("b1")), RollBackward(ORIGIN)]
     source = FakeSource(events)
 
     first = await source.next_event()

@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 from chainidx.model import (
     ORIGIN,
@@ -25,7 +26,7 @@ from chainidx.source import RollBackward, RollForward
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def load(name: str) -> dict:
+def load(name: str) -> Any:
     return json.loads((FIXTURES / name).read_text())
 
 

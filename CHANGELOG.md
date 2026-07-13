@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch10] - CBOR and real blocks
+
+### Added
+
+- `chainidx.cbor_blocks.decode_block`: decode real Cardano blocks from raw CBOR,
+  computing byte-exact block hashes and transaction ids.
+- Real captured node blocks as fixtures (`tests/fixtures/node_block_*.cbor`).
+
 ## [ch09] - The sync loop
 
 ### Added

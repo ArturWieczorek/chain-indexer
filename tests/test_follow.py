@@ -2,7 +2,7 @@
 
 from chainidx.follow import Follower
 from chainidx.model import ORIGIN, Block, Tx, TxIn, TxOut
-from chainidx.source import FakeSource, RollBackward, RollForward
+from chainidx.source import ChainEvent, FakeSource, RollBackward, RollForward
 from chainidx.store import SqliteStore
 
 
@@ -20,7 +20,7 @@ async def test_follower_resumes_at_the_origin_for_a_fresh_store() -> None:
 
 async def test_follower_indexes_a_forward_stream() -> None:
     store = SqliteStore()
-    events = [
+    events: list[ChainEvent] = [
         RollBackward(ORIGIN),
         RollForward(blk(1, "b1", "genesis", (Tx("t1", outputs=(TxOut("alice", 5_000_000),)),))),
         RollForward(blk(2, "b2", "b1")),
@@ -41,7 +41,7 @@ async def test_follower_handles_a_reorg_through_the_loop() -> None:
     store = SqliteStore()
     fund = Tx("t1", outputs=(TxOut("alice", 10_000_000),))
     spend = Tx("t2", inputs=(TxIn("t1", 0),), outputs=(TxOut("bob", 10_000_000),))
-    events = [
+    events: list[ChainEvent] = [
         RollBackward(ORIGIN),
         RollForward(blk(1, "b1", "genesis", (fund,))),
         RollForward(blk(2, "b2", "b1", (spend,))),
@@ -69,7 +69,7 @@ async def test_follower_handles_a_reorg_through_the_loop() -> None:
 
 async def test_follower_respects_max_events() -> None:
     store = SqliteStore()
-    forward = [RollBackward(ORIGIN)] + [RollForward(blk(i, f"b{i}", "p")) for i in range(1, 6)]
+    forward: list[ChainEvent] = [RollBackward(ORIGIN), *(RollForward(blk(i, f"b{i}", "p")) for i in range(1, 6))]
     follower = Follower(FakeSource(forward, known_points=[ORIGIN]), store)
 
     stats = await follower.run(max_events=3)

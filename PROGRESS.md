@@ -13,7 +13,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch07 - Conway governance
 - [x] ch08 - A source and the Ogmios client
 - [x] ch09 - The sync loop
-- [ ] ch10 - CBOR and real blocks
+- [x] ch10 - CBOR and real blocks
 - [ ] ch11 - Ouroboros wire I (mux and handshake)
 - [ ] ch12 - Ouroboros wire II (chain-sync)
 - [ ] ch13 - The query API
