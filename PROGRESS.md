@@ -8,7 +8,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch02 - The fork problem
 - [x] ch03 - SQLite schema and store
 - [x] ch04 - Indexing transactions
-- [ ] ch05 - Rollbacks and reorgs
+- [x] ch05 - Rollbacks and reorgs
 - [ ] ch06 - Shelley staking
 - [ ] ch07 - Conway governance
 - [ ] ch08 - A source and the Ogmios client

@@ -60,6 +60,10 @@ class Store(Protocol):
         """Return an address's unspent outputs."""
         ...
 
+    def rollback_to(self, point: Point | None) -> list[str]:
+        """Undo every block after ``point``; return removed hashes, newest-first."""
+        ...
+
     def close(self) -> None:
         """Release the underlying resources."""
         ...
@@ -248,6 +252,59 @@ class SqliteStore:
             )
             outputs.append(TxOut(address=r["address"], lovelace=r["lovelace"], assets=assets))
         return tuple(outputs)
+
+    def rollback_to(self, point: Point | None) -> list[str]:
+        """Undo every block after ``point`` and return the removed hashes.
+
+        This is the reorg engine. ``point`` is where the node told us to back up
+        to (or ``None`` for the origin, meaning "throw everything away"). We map
+        the point to a block id and then undo everything above it.
+
+        The order below is not arbitrary; foreign keys force it:
+
+        1. **Un-consume first.** Outputs from *surviving* blocks may have been
+           spent by transactions in the blocks we are about to delete. We clear
+           their `consumed_by_tx_id` so those outputs become unspent again -
+           this is how a rollback restores balances. It must happen before we
+           delete those transactions, or the foreign key would refuse.
+        2. **Delete leaf-first.** `ma_tx_out` before `tx_out` (it points at it),
+           and everything that points at `tx` before `tx`, and `tx` before
+           `block`. Deleting a parent before its children would raise a foreign
+           key error - which is exactly the safety net we want.
+
+        Everything runs in one transaction, so a crash mid-rollback leaves the
+        database untouched rather than half-rewound.
+        """
+        if point is None:
+            target_id = 0
+        else:
+            row = self._conn.execute(
+                "SELECT id FROM block WHERE hash = ?", (point.block_hash,)
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"cannot roll back to unknown point: {point!r}")
+            target_id = int(row["id"])
+
+        removed = [
+            r["hash"]
+            for r in self._conn.execute(
+                "SELECT hash FROM block WHERE id > ? ORDER BY id DESC", (target_id,)
+            ).fetchall()
+        ]
+
+        with self._conn:
+            # 1. Restore outputs that the removed transactions had consumed.
+            self._conn.execute(
+                "UPDATE tx_out SET consumed_by_tx_id = NULL "
+                "WHERE consumed_by_tx_id IN (SELECT id FROM tx WHERE block_id > ?)",
+                (target_id,),
+            )
+            # 2. Delete the removed blocks' rows, leaf-first.
+            for table in ("ma_tx_out", "tx_out", "tx_in", "tx"):
+                self._conn.execute(f"DELETE FROM {table} WHERE block_id > ?", (target_id,))
+            self._conn.execute("DELETE FROM block WHERE id > ?", (target_id,))
+
+        return removed
 
     def close(self) -> None:
         self._conn.close()

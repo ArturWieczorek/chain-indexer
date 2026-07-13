@@ -5,6 +5,15 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch05] - Rollbacks and reorgs
+
+### Added
+
+- `SqliteStore.rollback_to(point)`: the reorg engine. Restores outputs the
+  removed blocks spent, then deletes their rows leaf-first, in one transaction.
+- A property test proving a reorg leaves the database identical to one built
+  only from the winning branch.
+
 ## [ch04] - Indexing transactions
 
 ### Added
