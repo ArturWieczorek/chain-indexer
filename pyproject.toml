@@ -95,7 +95,7 @@ markers = [
 # left out of the unit-test coverage measurement. The pure parsing logic lives
 # in separate modules (e.g. ogmios_parse.py) that ARE covered. This list grows
 # as those chapters land (08, 11, 12).
-omit = ["src/chainidx/ogmios.py"]
+omit = ["src/chainidx/ogmios.py", "src/chainidx/node.py"]
 
 [tool.coverage.report]
 show_missing = true

@@ -5,6 +5,16 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch12] - Ouroboros wire II (chain-sync)
+
+### Added
+
+- `chainidx.chainsync`: the pure chain-sync message layer (find-intersect,
+  request-next, and reply parsing into roll-forward/roll-backward events).
+- `chainidx.node.NodeSource`: a from-scratch `ChainSource` that follows the node
+  directly, replacing Ogmios behind the same interface.
+- An integration test that follows a real chain via our own protocol.
+
 ## [ch11] - Ouroboros wire I (mux and handshake)
 
 ### Added
