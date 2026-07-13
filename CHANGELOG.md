@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch18] - Design and tradeoffs
+
+### Added
+
+- `chapters/18-design-and-tradeoffs`: a written comparison to db-sync and Dolos,
+  the on-chain vs ledger-state boundary, the shortcuts taken, the four design
+  seams, and finality.
+
 ## [ch17] - A real cluster and forced reorgs
 
 ### Added

@@ -21,5 +21,5 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch15 - The explorer
 - [x] ch16 - Live view and analytics
 - [x] ch17 - A real cluster and forced reorgs
-- [ ] ch18 - Design and tradeoffs
+- [x] ch18 - Design and tradeoffs
 - [ ] ch19 - Publish (v1.0.0)
