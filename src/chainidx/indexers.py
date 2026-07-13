@@ -30,7 +30,14 @@ from __future__ import annotations
 import sqlite3
 from typing import Protocol
 
-from chainidx.model import Tx
+from chainidx.model import (
+    PoolRegistration,
+    PoolRetirement,
+    StakeDelegation,
+    StakeDeregistration,
+    StakeRegistration,
+    Tx,
+)
 
 
 class Indexer(Protocol):
@@ -80,6 +87,53 @@ class InputIndexer:
             )
 
 
+class CertIndexer:
+    """Records Shelley staking and pool certificates found in a transaction.
+
+    Each certificate kind lands in its own table. We dispatch on the certificate
+    type; because the certificate classes are a closed union, the type checker
+    makes sure we handle every one of them.
+    """
+
+    def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
+        for cert in tx.certificates:
+            if isinstance(cert, StakeRegistration):
+                conn.execute(
+                    "INSERT INTO stake_registration (block_id, tx_id, addr) VALUES (?, ?, ?)",
+                    (block_id, tx_db_id, cert.stake_address),
+                )
+            elif isinstance(cert, StakeDeregistration):
+                conn.execute(
+                    "INSERT INTO stake_deregistration (block_id, tx_id, addr) VALUES (?, ?, ?)",
+                    (block_id, tx_db_id, cert.stake_address),
+                )
+            elif isinstance(cert, StakeDelegation):
+                conn.execute(
+                    "INSERT INTO delegation (block_id, tx_id, addr, pool_id) VALUES (?, ?, ?, ?)",
+                    (block_id, tx_db_id, cert.stake_address, cert.pool_id),
+                )
+            elif isinstance(cert, PoolRegistration):
+                conn.execute(
+                    "INSERT INTO pool_registration "
+                    "(block_id, tx_id, pool_id, pledge, margin, reward_addr) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        block_id,
+                        tx_db_id,
+                        cert.pool_id,
+                        cert.pledge,
+                        cert.margin,
+                        cert.reward_address,
+                    ),
+                )
+            else:  # PoolRetirement - the type checker knows this is the last case
+                conn.execute(
+                    "INSERT INTO pool_retirement (block_id, tx_id, pool_id, retiring_epoch) "
+                    "VALUES (?, ?, ?, ?)",
+                    (block_id, tx_db_id, cert.pool_id, cert.retiring_epoch),
+                )
+
+
 def default_indexers() -> tuple[Indexer, ...]:
     """The indexers a store runs by default, in the order they must run."""
-    return (OutputIndexer(), InputIndexer())
+    return (OutputIndexer(), InputIndexer(), CertIndexer())

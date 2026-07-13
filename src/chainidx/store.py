@@ -64,6 +64,18 @@ class Store(Protocol):
         """Undo every block after ``point``; return removed hashes, newest-first."""
         ...
 
+    def pools(self) -> tuple[str, ...]:
+        """Return the pool ids that are registered and not retired."""
+        ...
+
+    def delegation_of(self, stake_address: str) -> str | None:
+        """Return the pool a stake address most recently delegated to."""
+        ...
+
+    def is_stake_registered(self, stake_address: str) -> bool:
+        """Return whether a stake address is currently registered."""
+        ...
+
     def close(self) -> None:
         """Release the underlying resources."""
         ...
@@ -138,7 +150,77 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_ma_tx_out_parent ON ma_tx_out (tx_out_id)",
         ),
     ),
+    (
+        3,
+        (
+            # Shelley staking certificates. Each is block-keyed like everything
+            # else, so the chapter 05 rollback engine handles them once their
+            # names are added to its delete loop. We store the stake address as
+            # text on each row; real db-sync normalises it into a `stake_address`
+            # table that it never deletes on rollback (see chapter 18).
+            """
+            CREATE TABLE stake_registration (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id INTEGER NOT NULL REFERENCES block(id),
+                tx_id    INTEGER NOT NULL REFERENCES tx(id),
+                addr     TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE stake_deregistration (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id INTEGER NOT NULL REFERENCES block(id),
+                tx_id    INTEGER NOT NULL REFERENCES tx(id),
+                addr     TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE delegation (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id INTEGER NOT NULL REFERENCES block(id),
+                tx_id    INTEGER NOT NULL REFERENCES tx(id),
+                addr     TEXT    NOT NULL,
+                pool_id  TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE pool_registration (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id    INTEGER NOT NULL REFERENCES block(id),
+                tx_id       INTEGER NOT NULL REFERENCES tx(id),
+                pool_id     TEXT    NOT NULL,
+                pledge      INTEGER NOT NULL,
+                margin      REAL    NOT NULL,
+                reward_addr TEXT    NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE pool_retirement (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id       INTEGER NOT NULL REFERENCES block(id),
+                tx_id          INTEGER NOT NULL REFERENCES tx(id),
+                pool_id        TEXT    NOT NULL,
+                retiring_epoch INTEGER NOT NULL
+            )
+            """,
+            "CREATE INDEX idx_delegation_addr ON delegation (addr)",
+        ),
+    ),
 ]
+
+# Leaf tables (everything that references tx or block) are deleted before tx and
+# block during a rollback. Each new indexer chapter appends its tables here.
+_ROLLBACK_TABLES: tuple[str, ...] = (
+    "ma_tx_out",
+    "tx_out",
+    "tx_in",
+    "stake_registration",
+    "stake_deregistration",
+    "delegation",
+    "pool_registration",
+    "pool_retirement",
+    "tx",
+)
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
@@ -300,11 +382,44 @@ class SqliteStore:
                 (target_id,),
             )
             # 2. Delete the removed blocks' rows, leaf-first.
-            for table in ("ma_tx_out", "tx_out", "tx_in", "tx"):
+            for table in _ROLLBACK_TABLES:
                 self._conn.execute(f"DELETE FROM {table} WHERE block_id > ?", (target_id,))
             self._conn.execute("DELETE FROM block WHERE id > ?", (target_id,))
 
         return removed
+
+    def pools(self) -> tuple[str, ...]:
+        # A pool counts as active if it has a registration and no retirement.
+        # Real retirement is scheduled for a future epoch; we simplify here and
+        # revisit the nuance in chapter 18.
+        rows = self._conn.execute(
+            "SELECT DISTINCT pool_id FROM pool_registration "
+            "WHERE pool_id NOT IN (SELECT pool_id FROM pool_retirement) "
+            "ORDER BY pool_id"
+        ).fetchall()
+        return tuple(r["pool_id"] for r in rows)
+
+    def delegation_of(self, stake_address: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT pool_id FROM delegation WHERE addr = ? ORDER BY id DESC LIMIT 1",
+            (stake_address,),
+        ).fetchone()
+        return None if row is None else str(row["pool_id"])
+
+    def is_stake_registered(self, stake_address: str) -> bool:
+        # Registered if its most recent registration happened after its most
+        # recent deregistration. We order by tx_id, which is a global
+        # autoincrement and so increases with chain order across both tables
+        # (the per-table id columns are separate sequences and not comparable).
+        reg = self._conn.execute(
+            "SELECT MAX(tx_id) AS m FROM stake_registration WHERE addr = ?", (stake_address,)
+        ).fetchone()["m"]
+        if reg is None:
+            return False
+        dereg = self._conn.execute(
+            "SELECT MAX(tx_id) AS m FROM stake_deregistration WHERE addr = ?", (stake_address,)
+        ).fetchone()["m"]
+        return dereg is None or reg > dereg
 
     def close(self) -> None:
         self._conn.close()

@@ -60,17 +60,73 @@ class TxIn:
 
 
 @dataclass(frozen=True)
+class StakeRegistration:
+    """A stake address announcing itself to the ledger (chapter 06)."""
+
+    stake_address: str
+
+
+@dataclass(frozen=True)
+class StakeDeregistration:
+    """A stake address retiring itself (chapter 06)."""
+
+    stake_address: str
+
+
+@dataclass(frozen=True)
+class StakeDelegation:
+    """A stake address delegating its stake to a pool (chapter 06)."""
+
+    stake_address: str
+    pool_id: str
+
+
+@dataclass(frozen=True)
+class PoolRegistration:
+    """A stake pool registering or updating its parameters (chapter 06).
+
+    Real pool registration carries many more fields (cost, relays, owners,
+    metadata). We keep a teaching subset.
+    """
+
+    pool_id: str
+    pledge: int
+    margin: float
+    reward_address: str
+
+
+@dataclass(frozen=True)
+class PoolRetirement:
+    """A stake pool scheduling its retirement at an epoch (chapter 06)."""
+
+    pool_id: str
+    retiring_epoch: int
+
+
+# A certificate is any one of the above. Transactions carry a list of them.
+Certificate = (
+    StakeRegistration
+    | StakeDeregistration
+    | StakeDelegation
+    | PoolRegistration
+    | PoolRetirement
+)
+
+
+@dataclass(frozen=True)
 class Tx:
     """A transaction: it consumes some inputs and creates some outputs.
 
-    This is a deliberately small view of a Cardano transaction. Real
-    transactions also carry certificates, governance votes, metadata, and more;
-    we add those fields in later chapters as we start to index them.
+    This is a deliberately small view of a Cardano transaction. It also carries
+    the ``certificates`` (staking and pool actions) and, from chapter 07, the
+    governance actions and votes we index. Real transactions have more still
+    (metadata, scripts, witnesses); we add fields only as we index them.
     """
 
     tx_id: str
     inputs: tuple[TxIn, ...] = ()
     outputs: tuple[TxOut, ...] = ()
+    certificates: tuple[Certificate, ...] = ()
 
 
 @dataclass(frozen=True)

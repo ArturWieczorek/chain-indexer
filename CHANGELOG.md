@@ -5,6 +5,16 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch06] - Shelley staking
+
+### Added
+
+- Certificate model (`StakeRegistration`, `StakeDeregistration`,
+  `StakeDelegation`, `PoolRegistration`, `PoolRetirement`) and `Tx.certificates`.
+- `CertIndexer` and schema migration 3 (staking + pool tables), added to the
+  generic rollback loop via `_ROLLBACK_TABLES`.
+- Derived views: `pools`, `delegation_of`, `is_stake_registered`.
+
 ## [ch05] - Rollbacks and reorgs
 
 ### Added

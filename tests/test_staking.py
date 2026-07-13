@@ -1,0 +1,118 @@
+"""Tests for Shelley staking: certificates, derived views, and rollback."""
+
+from chainidx.model import (
+    Block,
+    PoolRegistration,
+    PoolRetirement,
+    StakeDelegation,
+    StakeDeregistration,
+    StakeRegistration,
+    Tx,
+)
+from chainidx.store import SqliteStore
+
+
+def blk(block_no: int, block_hash: str, prev_hash: str, txs: tuple[Tx, ...]) -> Block:
+    return Block(
+        block_no=block_no,
+        slot_no=block_no * 10,
+        block_hash=block_hash,
+        prev_hash=prev_hash,
+        txs=txs,
+    )
+
+
+def test_a_pool_registration_makes_the_pool_active() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration(pool_id="pool1", pledge=1000, margin=0.03, reward_address="stake_x")
+    store.apply_block(blk(1, "b1", "genesis", (Tx("tx1", certificates=(reg,)),)))
+
+    assert store.pools() == ("pool1",)
+    store.close()
+
+
+def test_a_retired_pool_drops_out_of_the_active_set() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration(pool_id="pool1", pledge=1000, margin=0.03, reward_address="stake_x")
+    store.apply_block(blk(1, "b1", "genesis", (Tx("tx1", certificates=(reg,)),)))
+    retire = PoolRetirement(pool_id="pool1", retiring_epoch=5)
+    store.apply_block(blk(2, "b2", "b1", (Tx("tx2", certificates=(retire,)),)))
+
+    assert store.pools() == ()
+    store.close()
+
+
+def test_delegation_tracks_the_latest_pool() -> None:
+    store = SqliteStore()
+    certs = (
+        StakeRegistration(stake_address="stake_alice"),
+        StakeDelegation(stake_address="stake_alice", pool_id="pool1"),
+    )
+    store.apply_block(blk(1, "b1", "genesis", (Tx("tx1", certificates=certs),)))
+    assert store.delegation_of("stake_alice") == "pool1"
+
+    # Alice re-delegates to pool2.
+    redelegate = StakeDelegation(stake_address="stake_alice", pool_id="pool2")
+    store.apply_block(blk(2, "b2", "b1", (Tx("tx2", certificates=(redelegate,)),)))
+    assert store.delegation_of("stake_alice") == "pool2"
+
+    assert store.delegation_of("stake_nobody") is None
+    store.close()
+
+
+def test_registration_and_deregistration_track_the_latest_event() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        blk(1, "b1", "genesis", (Tx("tx1", certificates=(StakeRegistration("stake_alice"),)),))
+    )
+    assert store.is_stake_registered("stake_alice") is True
+    assert store.is_stake_registered("stake_bob") is False
+
+    store.apply_block(
+        blk(2, "b2", "b1", (Tx("tx2", certificates=(StakeDeregistration("stake_alice"),)),))
+    )
+    assert store.is_stake_registered("stake_alice") is False
+
+    # Re-registering flips it back on, and it must survive later blocks.
+    store.apply_block(
+        blk(3, "b3", "b2", (Tx("tx3", certificates=(StakeRegistration("stake_alice"),)),))
+    )
+    assert store.is_stake_registered("stake_alice") is True
+    store.close()
+
+
+def test_staking_certificates_roll_back_with_their_block() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        blk(
+            1,
+            "b1",
+            "genesis",
+            (
+                Tx(
+                    "tx1",
+                    certificates=(
+                        PoolRegistration("pool1", 1000, 0.03, "stake_x"),
+                        StakeDelegation("stake_alice", "pool1"),
+                    ),
+                ),
+            ),
+        )
+    )
+    # A second block registers another pool and re-delegates.
+    store.apply_block(
+        blk(
+            2,
+            "b2",
+            "b1",
+            (Tx("tx2", certificates=(PoolRegistration("pool2", 2000, 0.01, "stake_y"),)),),
+        )
+    )
+    assert set(store.pools()) == {"pool1", "pool2"}
+
+    # Roll back block 2. pool2 and its rows must vanish; block 1's stay.
+    store.rollback_to(blk(1, "b1", "genesis", ()).point)
+
+    assert store.pools() == ("pool1",)
+    assert store.delegation_of("stake_alice") == "pool1"
+    store.close()
