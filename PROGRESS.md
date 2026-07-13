@@ -6,7 +6,7 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch00 - Orientation (scaffold, tooling, smoke test)
 - [x] ch01 - The block and chain model
 - [x] ch02 - The fork problem
-- [ ] ch03 - SQLite schema and store
+- [x] ch03 - SQLite schema and store
 - [ ] ch04 - Indexing transactions
 - [ ] ch05 - Rollbacks and reorgs
 - [ ] ch06 - Shelley staking

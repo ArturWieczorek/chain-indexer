@@ -5,6 +5,14 @@ based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
 ## [Unreleased]
 
+## [ch03] - SQLite schema and store
+
+### Added
+
+- `chainidx.store`: a `Store` protocol and a `SqliteStore` backed by SQLite.
+- A versioned migration runner and the first schema (`block`, `tx`), modelled on
+  cardano-db-sync, with block-keyed rows and enforced foreign keys.
+
 ## [ch02] - The fork problem
 
 ### Added
