@@ -90,15 +90,17 @@
     </header>
     <script>
       (function () {
-        const t = localStorage.getItem("ci-theme") || "dark";
-        document.documentElement.setAttribute("data-theme", t);
+        const btn = document.getElementById("themebtn");
+        function set(t) {
+          document.documentElement.setAttribute("data-theme", t);
+          localStorage.setItem("ci-theme", t);
+          btn.textContent = t === "light" ? "☀ light" : "☾ dark";
+        }
+        set(localStorage.getItem("ci-theme") || "dark");
         const a = localStorage.getItem("ci-accent");
         if (a) document.documentElement.style.setProperty("--accent", a);
-        document.getElementById("themebtn").addEventListener("click", function () {
-          const next =
-            document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-          document.documentElement.setAttribute("data-theme", next);
-          localStorage.setItem("ci-theme", next);
+        btn.addEventListener("click", function () {
+          set(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
         });
       })();
     </script>

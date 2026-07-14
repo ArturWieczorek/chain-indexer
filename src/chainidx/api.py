@@ -618,6 +618,7 @@ def create_app(
                 slot_in_epoch=progress.slot_in_epoch,
                 epoch_progress=round(progress.fraction, 4),
                 tip_time=network.slot_time(tip.point.slot_no),
+                tip_height=tip.block_no,
             )
         return state
 

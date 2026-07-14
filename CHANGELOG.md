@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.39.0] - Header status and theme label
+
+### Changed
+
+- `/network` returns `tip_height`; the explorer shows the tip in the network
+  banner next to tip time, and the header status is now a connection indicator.
+- The theme toggle shows the active mode (dark/light) on both pages.
+
 ## [1.38.0] - Governance tabs
 
 ### Changed

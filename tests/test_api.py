@@ -360,6 +360,7 @@ def test_epochs_and_network_with_params() -> None:
     net = api.get("/network").json()
     assert net["available"] is True
     assert net["current_epoch"] == 1  # tip at slot 120
+    assert net["tip_height"] == 12  # shown in the banner alongside tip time
 
     block1 = api.get("/blocks/height/1").json()
     assert block1["epoch_no"] == 0

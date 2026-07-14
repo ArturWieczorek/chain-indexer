@@ -14,6 +14,7 @@
         --muted: #8b97b3;
         --accent: #6ea8fe;
         --good: #4ec9a5;
+        --bad: #e06c75;
       }
       :root[data-theme="light"] {
         --bg: #f4f6fb;
@@ -23,6 +24,7 @@
         --muted: #5b6580;
         --accent: #2f6fed;
         --good: #1e9e7a;
+        --bad: #d0453f;
       }
       * { box-sizing: border-box; }
       body {
@@ -171,6 +173,8 @@
       function applyTheme(t) {
         document.documentElement.setAttribute("data-theme", t);
         localStorage.setItem("ci-theme", t);
+        const tb = document.getElementById("themebtn");
+        if (tb) tb.textContent = t === "light" ? "☀ light" : "☾ dark";
       }
       function applyAccent(c) {
         document.documentElement.style.setProperty("--accent", c);
@@ -214,11 +218,15 @@
       };
 
       async function refreshStatus() {
+        // A compact connection indicator; the tip itself lives in the banner
+        // next to the tip time.
         try {
-          const h = await api("/health");
-          statusEl.textContent = h.tip_height == null ? "no blocks yet" : `tip #${h.tip_height}`;
+          await api("/health");
+          statusEl.textContent = "● online";
+          statusEl.style.color = "var(--good)";
         } catch {
-          statusEl.textContent = "offline";
+          statusEl.textContent = "● offline";
+          statusEl.style.color = "var(--bad)";
         }
       }
 
@@ -232,6 +240,7 @@
             `<div><div class="muted">current epoch</div><div class="big">${n.current_epoch}</div></div>` +
             `<div style="flex:1"><div class="muted">${pct}% complete (slot ${n.slot_in_epoch} / ${n.epoch_length})</div>` +
             `<div class="bar"><div style="width:${pct}%"></div></div></div>` +
+            `<div><div class="muted">tip</div><div>#${n.tip_height ?? "?"}</div></div>` +
             `<div><div class="muted">tip time</div><div>${esc(n.tip_time || "")}</div></div></div>`
           );
         } catch {
