@@ -43,8 +43,8 @@ def create_live_app(
     app = create_explorer_app(store, network, mempool_source, metadata_fetcher, ipfs_gateway)
 
     @app.get("/live", response_class=HTMLResponse)
-    def live_page() -> str:
-        return _LIVE_HTML
+    def live_page() -> HTMLResponse:
+        return HTMLResponse(_LIVE_HTML, headers={"Cache-Control": "no-cache"})
 
     @app.websocket("/stream")
     async def stream(websocket: WebSocket) -> None:  # pragma: no cover - needs a live loop

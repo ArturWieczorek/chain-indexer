@@ -12,6 +12,7 @@ def test_live_page_and_api() -> None:
 
     page = client.get("/live")
     assert page.status_code == 200
+    assert page.headers["cache-control"] == "no-cache"
     assert "chain-indexer" in page.text
     assert "Live feed" in page.text
 

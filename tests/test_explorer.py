@@ -12,6 +12,7 @@ def test_explorer_serves_the_page_and_the_api() -> None:
     page = client.get("/")
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
+    assert page.headers["cache-control"] == "no-cache"  # so restarts are picked up
     assert "chain-indexer explorer" in page.text
     assert "Latest blocks" in page.text
 

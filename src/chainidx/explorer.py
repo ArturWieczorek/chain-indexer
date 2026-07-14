@@ -38,8 +38,10 @@ def create_explorer_app(
     app = create_app(store, network, mempool_source, metadata_fetcher, ipfs_gateway)
 
     @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return _INDEX_HTML
+    def index() -> HTMLResponse:
+        # `no-cache` asks the browser to revalidate before reusing the page, so a
+        # restarted server's updated explorer is picked up without a hard refresh.
+        return HTMLResponse(_INDEX_HTML, headers={"Cache-Control": "no-cache"})
 
     return app
 
