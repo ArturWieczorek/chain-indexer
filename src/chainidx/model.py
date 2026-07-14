@@ -272,6 +272,20 @@ class DRepSummary:
 
 
 @dataclass(frozen=True)
+class DRepVote:
+    """A single vote a DRep cast, seen from the DRep's side (chapter 33).
+
+    ``action_type`` is the type of the governance action the vote refers to, or
+    ``"Unknown"`` if the referenced action has not been indexed (it may live in a
+    block we have not reached, or on another chain).
+    """
+
+    gov_action_id: str
+    action_type: str
+    vote: str
+
+
+@dataclass(frozen=True)
 class AccountState:
     """A stake account's delegation and reward balance (chapter 26, ledger state).
 

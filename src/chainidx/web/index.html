@@ -130,7 +130,19 @@
       const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
       const ada = (l) => (l / 1_000_000).toLocaleString() + " ADA";
       const short = (h) => (h && h.length > 20 ? h.slice(0, 12) + "..." + h.slice(-6) : h);
-      const link = (kind, id, label) => `<a href="#/${kind}/${id}">${esc(label || id)}</a>`;
+      // Ids can contain characters that clash with hash routing - a governance
+      // action id is "txid#index", and the "#" would otherwise start a new URL
+      // fragment. Encoding the id in the href (and decoding it in the router)
+      // keeps such ids intact end to end.
+      const link = (kind, id, label) =>
+        `<a href="#/${kind}/${encodeURIComponent(id)}">${esc(label || id)}</a>`;
+      const safeDecode = (s) => {
+        try {
+          return decodeURIComponent(s);
+        } catch {
+          return s;
+        }
+      };
 
       async function refreshStatus() {
         try {
@@ -310,7 +322,7 @@
           ? dreps
               .map(
                 (d) =>
-                  `<tr><td class="wrap">${esc(short(d.drep_id))}</td>` +
+                  `<tr><td class="wrap">${link("drep", d.drep_id, short(d.drep_id))}</td>` +
                   `<td class="lovelace">${ada(d.deposit)}</td><td>${d.votes_cast}</td></tr>`
               )
               .join("")
@@ -323,13 +335,20 @@
       }
 
       async function govDetail(id) {
-        const a = await api(`/governance/actions/${id}`);
+        const a = await api(`/governance/actions/${encodeURIComponent(id)}`);
         const votes = (a.votes || [])
-          .map(
-            (v) =>
-              `<tr><td>${esc(v.voter_role)}</td><td class="wrap">${esc(short(v.voter_id))}</td>` +
+          .map((v) => {
+            // A DRep voter links to its page; other roles (SPO, committee) are
+            // shown as text since they have no detail page yet.
+            const voter =
+              v.voter_role === "DRep"
+                ? link("drep", v.voter_id, short(v.voter_id))
+                : esc(short(v.voter_id));
+            return (
+              `<tr><td>${esc(v.voter_role)}</td><td class="wrap">${voter}</td>` +
               `<td>${esc(v.vote)}</td></tr>`
-          )
+            );
+          })
           .join("");
         app.innerHTML =
           `<h2>Governance action</h2><div class="panel"><div class="kv">` +
@@ -341,6 +360,27 @@
           (votes
             ? `<h2>Votes</h2><div class="panel"><table><tr><th>Role</th><th>Voter</th><th>Vote</th></tr>${votes}</table></div>`
             : "");
+      }
+
+      async function drepDetail(id) {
+        const d = await api(`/governance/dreps/${encodeURIComponent(id)}`);
+        const voteRows = (d.votes || [])
+          .map(
+            (v) =>
+              `<tr><td class="wrap">${link("gov", v.gov_action_id, short(v.gov_action_id))}</td>` +
+              `<td>${esc(v.action_type)}</td><td>${esc(v.vote)}</td></tr>`
+          )
+          .join("");
+        app.innerHTML =
+          `<h2>Delegated representative</h2><div class="panel"><div class="kv">` +
+          `<div>DRep id</div><div>${esc(d.drep_id)}</div>` +
+          `<div>deposit</div><div class="lovelace">${ada(d.deposit)}</div>` +
+          `<div>votes cast</div><div>${d.votes_cast}</div>` +
+          `</div></div>` +
+          (voteRows
+            ? `<h2>Votes</h2><div class="panel"><table>` +
+              `<tr><th>Action</th><th>Type</th><th>Vote</th></tr>${voteRows}</table></div>`
+            : `<div class="panel muted">This DRep has not voted yet.</div>`);
       }
 
       async function poolDetail(id) {
@@ -370,14 +410,30 @@
       }
 
       async function epochDetail(n) {
-        const e = await api(`/epochs/${n}`);
+        const [e, blocks] = await Promise.all([
+          api(`/epochs/${n}`),
+          api(`/epochs/${n}/blocks`),
+        ]);
+        const blockRows = blocks
+          .map(
+            (b) =>
+              `<tr><td>${link("height", b.block_no, b.block_no)}</td>` +
+              `<td>${link("slot", b.slot_no, b.slot_no)}</td>` +
+              `<td class="wrap">${link("block", b.hash, short(b.hash))}</td>` +
+              `<td>${b.tx_count}</td></tr>`
+          )
+          .join("");
         app.innerHTML =
           `<h2>Epoch ${e.epoch_no}</h2><div class="panel"><div class="kv">` +
           `<div>blocks</div><div>${e.block_count}</div>` +
           `<div>transactions</div><div>${e.tx_count}</div>` +
           `<div>slots</div><div>${e.start_slot} to ${e.end_slot}</div>` +
           `<div>started</div><div>${esc(e.start_time || "-")}</div>` +
-          `<div>ended</div><div>${esc(e.end_time || "-")}</div></div></div>`;
+          `<div>ended</div><div>${esc(e.end_time || "-")}</div></div></div>` +
+          (blockRows
+            ? `<h2>Blocks</h2><div class="panel"><table>` +
+              `<tr><th>Height</th><th>Slot</th><th>Hash</th><th>Txs</th></tr>${blockRows}</table></div>`
+            : "");
       }
 
       function renderBlock(b) {
@@ -457,7 +513,7 @@
 
       async function router() {
         await refreshStatus();
-        const parts = location.hash.replace(/^#\/?/, "").split("/");
+        const parts = location.hash.replace(/^#\/?/, "").split("/").map(safeDecode);
         try {
           if (parts[0] === "block" && parts[1]) await block(parts[1]);
           else if (parts[0] === "epochs") await epochsPage();
@@ -466,6 +522,7 @@
           else if (parts[0] === "pool" && parts[1]) await poolDetail(parts[1]);
           else if (parts[0] === "governance") await governancePage();
           else if (parts[0] === "gov" && parts[1]) await govDetail(parts[1]);
+          else if (parts[0] === "drep" && parts[1]) await drepDetail(parts[1]);
           else if (parts[0] === "account" && parts[1]) await accountPage(parts[1]);
           else if (parts[0] === "tokens") await tokensPage();
           else if (parts[0] === "asset" && parts[1] && parts[2]) await assetPage(parts[1], parts[2]);

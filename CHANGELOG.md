@@ -3,6 +3,23 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.15.0] - Clickable governance and epoch blocks
+
+### Added
+
+- `DRepVote` model; `store.drep_votes` (votes a DRep cast, with the action type,
+  `Unknown` when the action is not indexed) and `store.blocks_in_epoch`.
+- `/governance/dreps/{drep_id}` now returns the DRep's votes;
+  `/epochs/{epoch_no}/blocks` lists an epoch's blocks.
+- Explorer: a DRep detail page, DRep links from the governance page and from a
+  vote's voter, and a clickable block list on the epoch page.
+
+### Fixed
+
+- Governance action links returned 404: an action id is `txid#index`, and the
+  `#` clashed with URL-fragment routing and truncated the request path. Ids are
+  now URL-encoded across links, the router, and API calls.
+
 ## [1.14.0] - Governance from CBOR
 
 ### Added

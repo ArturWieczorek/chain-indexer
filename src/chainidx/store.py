@@ -36,6 +36,7 @@ from chainidx.model import (
     AssetDetail,
     Block,
     DRepSummary,
+    DRepVote,
     EpochSummary,
     GovActionSummary,
     GovVoteRecord,
@@ -195,6 +196,14 @@ class Store(Protocol):
 
     def drep_summaries(self) -> list[DRepSummary]:
         """Return each active DRep with its deposit and votes-cast count."""
+        ...
+
+    def drep_votes(self, drep_id: str) -> tuple[DRepVote, ...]:
+        """Return the votes a DRep cast, each with the action it refers to."""
+        ...
+
+    def blocks_in_epoch(self, epoch_no: int, epoch_length: int, limit: int = 200) -> list[Block]:
+        """Return the blocks that fall in an epoch, newest first."""
         ...
 
     def close(self) -> None:
@@ -996,6 +1005,31 @@ class SqliteStore:
             ).fetchone()["n"]
             summaries.append(DRepSummary(drep_id=drep_id, deposit=deposit, votes_cast=votes))
         return summaries
+
+    def drep_votes(self, drep_id: str) -> tuple[DRepVote, ...]:
+        rows = self._conn.execute(
+            "SELECT v.gov_action_id AS gid, v.vote AS vote, p.action_type AS action_type "
+            "FROM voting_procedure v "
+            "LEFT JOIN gov_action_proposal p ON p.gov_action_id = v.gov_action_id "
+            "WHERE v.voter_id = ? AND v.voter_role = 'DRep' ORDER BY v.id",
+            (drep_id,),
+        ).fetchall()
+        return tuple(
+            DRepVote(
+                gov_action_id=r["gid"],
+                action_type=r["action_type"] or "Unknown",
+                vote=r["vote"],
+            )
+            for r in rows
+        )
+
+    def blocks_in_epoch(self, epoch_no: int, epoch_length: int, limit: int = 200) -> list[Block]:
+        rows = self._conn.execute(
+            "SELECT hash FROM block WHERE slot_no / ? = ? ORDER BY block_no DESC LIMIT ?",
+            (epoch_length, epoch_no, limit),
+        ).fetchall()
+        blocks = [self.get_block(r["hash"]) for r in rows]
+        return [b for b in blocks if b is not None]
 
     def close(self) -> None:
         self._conn.close()

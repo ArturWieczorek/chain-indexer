@@ -187,6 +187,7 @@ def test_blocks_latest_and_by_hash(client: TestClient) -> None:
 def test_epochs_are_empty_without_network(client: TestClient) -> None:
     assert client.get("/epochs").json() == []
     assert client.get("/epochs/0").status_code == 404
+    assert client.get("/epochs/0/blocks").status_code == 404
     assert client.get("/network").json()["available"] is False
 
 
@@ -204,6 +205,14 @@ def test_epochs_and_network_with_params() -> None:
 
     assert api.get("/epochs/0").json()["block_count"] == 9
     assert api.get("/epochs/999").status_code == 404
+
+    # The epoch's blocks are listed and each is a clickable-shaped block record.
+    blocks0 = api.get("/epochs/0/blocks").json()
+    assert len(blocks0) == 9
+    assert blocks0[0]["block_no"] == 9  # newest first
+    assert all("hash" in b and "tx_count" in b for b in blocks0)
+    assert api.get("/epochs/1/blocks").json()[0]["block_no"] == 12
+    assert api.get("/epochs/999/blocks").json() == []
 
     net = api.get("/network").json()
     assert net["available"] is True
@@ -295,5 +304,8 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     dreps = client.get("/governance/dreps").json()
     assert dreps[0]["drep_id"] == "drep1"
     assert dreps[0]["deposit"] == 500
-    assert client.get("/governance/dreps/drep1").json()["votes_cast"] == 1
+    drep = client.get("/governance/dreps/drep1").json()
+    assert drep["votes_cast"] == 1
+    # The detail page shows which actions the DRep voted on and how.
+    assert drep["votes"] == [{"gov_action_id": "gov1", "action_type": "InfoAction", "vote": "Yes"}]
     assert client.get("/governance/dreps/nope").status_code == 404

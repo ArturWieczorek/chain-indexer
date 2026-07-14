@@ -21,6 +21,7 @@ from chainidx.model import (
     Asset,
     Block,
     DRepSummary,
+    DRepVote,
     EpochSummary,
     GovActionSummary,
     GovVoteRecord,
@@ -153,6 +154,14 @@ def _drep(summary: DRepSummary) -> dict[str, Any]:
         "drep_id": summary.drep_id,
         "deposit": summary.deposit,
         "votes_cast": summary.votes_cast,
+    }
+
+
+def _drep_vote(vote: DRepVote) -> dict[str, Any]:
+    return {
+        "gov_action_id": vote.gov_action_id,
+        "action_type": vote.action_type,
+        "vote": vote.vote,
     }
 
 
@@ -304,7 +313,9 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         match = next((d for d in store.drep_summaries() if d.drep_id == drep_id), None)
         if match is None:
             raise HTTPException(status_code=404, detail="DRep not found")
-        return _drep(match)
+        out = _drep(match)
+        out["votes"] = [_drep_vote(v) for v in store.drep_votes(drep_id)]
+        return out
 
     @app.get("/epochs")
     def epochs() -> list[dict[str, Any]]:
@@ -320,6 +331,12 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         if summary is None:
             raise HTTPException(status_code=404, detail="epoch not found")
         return _epoch(summary, network)
+
+    @app.get("/epochs/{epoch_no}/blocks")
+    def epoch_blocks(epoch_no: int) -> list[dict[str, Any]]:
+        if network is None:
+            raise HTTPException(status_code=404, detail="network parameters not configured")
+        return [_block(b, network) for b in store.blocks_in_epoch(epoch_no, network.epoch_length)]
 
     @app.get("/analytics/summary")
     def analytics_summary() -> dict[str, Any]:

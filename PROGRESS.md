@@ -35,3 +35,5 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch29 - Controlled stake (v1.11.0)
 - [x] ch30 - Analytics (v1.12.0)
 - [x] ch31 - Tokens (v1.13.0)
+- [x] ch32 - Governance from CBOR (v1.14.0)
+- [x] ch33 - Clickable governance and epoch blocks (v1.15.0)

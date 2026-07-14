@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from chainidx.model import Block, Tx
+from chainidx.model import Block, GovActionProposal, GovVote, Tx
 from chainidx.store import SqliteStore
 
 
@@ -142,3 +142,42 @@ def test_store_works_as_a_context_manager() -> None:
     with SqliteStore() as store:
         store.apply_block(block(1, "b1", "genesis"))
         assert store.block_count() == 1
+
+
+def test_drep_votes_resolves_action_type_and_marks_unknown() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        block(
+            1,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    proposals=(GovActionProposal("g1", "InfoAction", 0, "r"),),
+                    votes=(
+                        GovVote("g1", "DRep", "drep1", "Yes"),
+                        # A vote on an action we have not indexed -> type Unknown.
+                        GovVote("g_elsewhere", "DRep", "drep1", "No"),
+                    ),
+                ),
+            ),
+        )
+    )
+    votes = store.drep_votes("drep1")
+    by_action = {v.gov_action_id: v for v in votes}
+    assert by_action["g1"].action_type == "InfoAction"
+    assert by_action["g1"].vote == "Yes"
+    assert by_action["g_elsewhere"].action_type == "Unknown"
+    store.close()
+
+
+def test_blocks_in_epoch_lists_blocks_newest_first() -> None:
+    store = SqliteStore()
+    for i in range(1, 13):  # block i at slot i*10; epoch_length 100
+        store.apply_block(block(i, f"b{i}", "p" if i == 1 else f"b{i - 1}"))
+    epoch0 = store.blocks_in_epoch(0, 100)
+    assert [b.block_no for b in epoch0] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
+    assert [b.block_no for b in store.blocks_in_epoch(1, 100)] == [12, 11, 10]
+    assert store.blocks_in_epoch(99, 100) == []
+    store.close()
