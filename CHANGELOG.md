@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.27.0] - Submitting transactions (local-tx-submission)
+
+### Added
+
+- The final node-to-client mini-protocol, local-tx-submission (id 6):
+  `SubmitResult`, the pure `txsubmit` codec, and the integration `TxSubmitClient`.
+- A `chainidx submit` command that submits a signed transaction over our own
+  protocol (accept, or the node's rejection reason) instead of via the cli. All
+  five node-to-client mini-protocols are now hand-written.
+
 ## [1.26.0] - Protocol updates
 
 ### Added

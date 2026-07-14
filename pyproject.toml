@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chainidx"
-version = "1.26.0"
+version = "1.27.0"
 description = "A mini Cardano chain indexer with reorg handling, a query API, and a block explorer - a test-driven course"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -104,6 +104,7 @@ omit = [
     "src/chainidx/node.py",
     "src/chainidx/localstate.py",
     "src/chainidx/mempoolclient.py",
+    "src/chainidx/txsubmitclient.py",
 ]
 
 [tool.coverage.report]

@@ -150,6 +150,35 @@ def state(socket: str, magic: int) -> None:  # pragma: no cover - queries a live
 
 
 @main.command()
+@click.argument("tx_file", type=click.Path(exists=True))
+@click.option("--socket", envvar="CARDANO_NODE_SOCKET_PATH", default="")
+@click.option("--magic", default=42, type=int)
+def submit(tx_file: str, socket: str, magic: int) -> None:  # pragma: no cover - live node
+    """Submit a signed transaction to a node over local-tx-submission.
+
+    TX_FILE is a signed transaction: either a cardano-cli envelope (JSON with a
+    ``cborHex`` field) or a raw ``.cbor`` file.
+    """
+    import json
+    from pathlib import Path
+
+    from chainidx.txsubmitclient import TxSubmitClient
+
+    raw = Path(tx_file).read_bytes()
+    try:
+        tx_bytes = bytes.fromhex(json.loads(raw)["cborHex"])
+    except (ValueError, KeyError):
+        tx_bytes = raw  # already a raw CBOR transaction
+
+    result = TxSubmitClient(socket, magic).submit_sync(tx_bytes)
+    if result.accepted:
+        click.echo("accepted")
+    else:
+        click.echo(f"rejected: {result.reason}")
+        raise SystemExit(1)
+
+
+@main.command()
 @click.option("--source", type=click.Choice(["node", "ogmios"]), default="node")
 @click.option("--socket", envvar="CARDANO_NODE_SOCKET_PATH", default="")
 @click.option("--ogmios-url", default="ws://127.0.0.1:1337")

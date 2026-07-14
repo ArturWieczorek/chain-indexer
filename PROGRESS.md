@@ -48,3 +48,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch42 - Analytics time series (v1.24.0)
 - [x] ch43 - The mempool (local-tx-monitor) (v1.25.0)
 - [x] ch44 - Protocol updates (v1.26.0)
+- [x] ch45 - Submitting transactions (local-tx-submission) (v1.27.0)

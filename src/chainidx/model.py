@@ -42,6 +42,18 @@ class AssetDetail:
 
 
 @dataclass(frozen=True)
+class SubmitResult:
+    """The outcome of submitting a transaction to a node (chapter 45).
+
+    ``accepted`` is true when the node took the transaction into its mempool;
+    otherwise ``reason`` carries the node's rejection message.
+    """
+
+    accepted: bool
+    reason: str
+
+
+@dataclass(frozen=True)
 class MempoolStatus:
     """A snapshot of the node's mempool, from local-tx-monitor (chapter 43).
 
