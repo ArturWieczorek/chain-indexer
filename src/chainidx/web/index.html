@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>chain-indexer explorer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%236ea8fe'/><text x='16' y='23' font-size='19' font-family='monospace' font-weight='bold' text-anchor='middle' fill='%230f1420'>C</text></svg>" />
     <style>
       :root {
         --bg: #0f1420;
@@ -13,6 +14,15 @@
         --muted: #8b97b3;
         --accent: #6ea8fe;
         --good: #4ec9a5;
+      }
+      :root[data-theme="light"] {
+        --bg: #f4f6fb;
+        --panel: #ffffff;
+        --line: #d7deec;
+        --text: #1a2233;
+        --muted: #5b6580;
+        --accent: #2f6fed;
+        --good: #1e9e7a;
       }
       * { box-sizing: border-box; }
       body {
@@ -37,6 +47,25 @@
       header nav a { color: var(--muted); text-decoration: none; }
       header nav a:hover { color: var(--accent); }
       header .status { color: var(--muted); margin-left: auto; }
+      header .controls { display: flex; gap: 0.4rem; align-items: center; }
+      .themebtn {
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 0.1rem 0.45rem;
+        font: inherit;
+      }
+      .swatch {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--panel);
+        outline: 1px solid var(--line);
+        cursor: pointer;
+        padding: 0;
+      }
       .banner {
         display: flex;
         gap: 1.5rem;
@@ -127,12 +156,40 @@
       </nav>
       <input id="search" placeholder="Search: block height (e.g. 33), slot:N, block/tx hash, or address" />
       <span class="status" id="status">connecting...</span>
+      <div class="controls" id="controls">
+        <button class="themebtn" id="themebtn" title="Toggle light/dark">theme</button>
+      </div>
     </header>
     <main id="app">Loading...</main>
 
     <script>
       const app = document.getElementById("app");
       const statusEl = document.getElementById("status");
+
+      // Theme (dark/light) and accent colour, remembered across visits.
+      const ACCENTS = ["#6ea8fe", "#4ec9a5", "#f2a65a", "#c792ea", "#ef6f6c"];
+      function applyTheme(t) {
+        document.documentElement.setAttribute("data-theme", t);
+        localStorage.setItem("ci-theme", t);
+      }
+      function applyAccent(c) {
+        document.documentElement.style.setProperty("--accent", c);
+        localStorage.setItem("ci-accent", c);
+      }
+      applyTheme(localStorage.getItem("ci-theme") || "dark");
+      if (localStorage.getItem("ci-accent")) applyAccent(localStorage.getItem("ci-accent"));
+      document.getElementById("themebtn").addEventListener("click", () =>
+        applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light")
+      );
+      const controlsEl = document.getElementById("controls");
+      ACCENTS.forEach((c) => {
+        const b = document.createElement("button");
+        b.className = "swatch";
+        b.style.background = c;
+        b.title = "Accent " + c;
+        b.addEventListener("click", () => applyAccent(c));
+        controlsEl.appendChild(b);
+      });
 
       const api = async (path) => {
         const res = await fetch(path);

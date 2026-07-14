@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.35.0] - Favicons, theme, and colour
+
+### Added
+
+- Inline-SVG favicons for the explorer and live pages.
+- A light theme (CSS-variable overrides), a dark/light toggle, and accent-colour
+  swatches, persisted in localStorage and shared across both pages.
+
 ## [1.34.0] - Asset images
 
 ### Added

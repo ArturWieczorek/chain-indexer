@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>chain-indexer live</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234ec9a5'/><circle cx='16' cy='16' r='6' fill='%230f1420'/></svg>" />
     <style>
       :root {
         --bg: #0f1420;
@@ -15,6 +16,17 @@
         --good: #4ec9a5;
         --warn: #f0a35e;
         --bad: #e06c75;
+      }
+      :root[data-theme="light"] {
+        --bg: #f4f6fb;
+        --panel: #ffffff;
+        --line: #d7deec;
+        --text: #1a2233;
+        --muted: #5b6580;
+        --accent: #2f6fed;
+        --good: #1e9e7a;
+        --warn: #c67c25;
+        --bad: #d0453f;
       }
       * { box-sizing: border-box; }
       body {
@@ -73,7 +85,23 @@
       <h1>chain-indexer <span style="color: var(--muted)">live</span></h1>
       <a href="/">explorer</a>
       <span class="conn" id="conn">connecting...</span>
+      <button id="themebtn" title="Toggle light/dark"
+        style="cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:6px;padding:0.1rem 0.45rem;font:inherit;margin-left:0.5rem">theme</button>
     </header>
+    <script>
+      (function () {
+        const t = localStorage.getItem("ci-theme") || "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        const a = localStorage.getItem("ci-accent");
+        if (a) document.documentElement.style.setProperty("--accent", a);
+        document.getElementById("themebtn").addEventListener("click", function () {
+          const next =
+            document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("ci-theme", next);
+        });
+      })();
+    </script>
     <main>
       <div class="tiles">
         <div class="tile"><div class="n" id="t-blocks">0</div><div class="l">blocks</div></div>
