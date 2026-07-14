@@ -877,17 +877,21 @@
         const meta = p.metadata_url
           ? `<a href="${esc(p.metadata_url)}" target="_blank" rel="noopener">${esc(p.metadata_url)}</a>`
           : "<span class='muted'>none</span>";
-        const series = p.blocks_by_epoch || [];
-        const avg = series.length
-          ? (series.reduce((s, d) => s + d.block_count, 0) / series.length).toFixed(1)
+        // Lifetime stats use the whole history; the chart shows the recent window
+        // so it stays legible instead of squishing hundreds of epochs together.
+        const allEpochs = p.blocks_by_epoch || [];
+        const avg = allEpochs.length
+          ? (allEpochs.reduce((s, d) => s + d.block_count, 0) / allEpochs.length).toFixed(1)
           : "0";
         const perf =
           `<h2>Performance</h2><div class="panel"><div class="kv">` +
           `<div>lifetime blocks</div><div>${p.blocks_minted}</div>` +
-          `<div>epochs minting</div><div>${series.length}</div>` +
+          `<div>epochs minting</div><div>${allEpochs.length}</div>` +
           `<div>avg blocks / epoch</div><div>${avg}</div></div></div>`;
-        const blocksChart = series.length
-          ? `<h2>Blocks produced per epoch</h2>${lineChart(series, (d) => d.block_count, (v) => `${v} blocks`)}`
+        const recent = allEpochs.slice(-40);
+        const blocksChart = recent.length
+          ? `<h2>Blocks produced per epoch <span class="muted" style="font-size:.8rem">(last ${recent.length})</span></h2>` +
+            lineChart(recent, (d) => d.block_count, (v) => `${v} blocks`)
           : "";
         const stakeSeries = (p.stake_history || []).map((h) => ({ epoch_no: h.epoch, stake: h.stake }));
         const stakeChart = stakeSeries.length

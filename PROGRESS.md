@@ -65,3 +65,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch59 - Pool performance: expected vs made, and saturation (v1.41.0)
 - [x] ch60 - Live status colour (v1.42.0)
 - [x] ch61 - Chart axes and gridlines (v1.43.0)
+- [x] ch62 - A readable blocks-per-epoch chart (v1.44.0)

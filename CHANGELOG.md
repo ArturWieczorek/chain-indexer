@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.44.0] - A readable blocks-per-epoch chart
+
+### Changed
+
+- The pool's blocks-per-epoch chart now shows the last 40 epochs (legible) while
+  the lifetime performance stats still cover all epochs.
+
 ## [1.43.0] - Chart axes and gridlines
 
 ### Changed
