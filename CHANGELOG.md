@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.31.0] - Mint transactions
+
+### Added
+
+- `Tx.mint` and `_decode_mint` (transaction-body mint field, key 9); `MintRecord`;
+  migration 16 `mint_event`; `MintIndexer`; `store.recent_mints`.
+- `/assets/mints` and a Mint Transactions sub-tab in the Tokens section (mints and
+  burns, with quantity sign and the minting transaction).
+
 ## [1.30.0] - Richer pool detail
 
 ### Added

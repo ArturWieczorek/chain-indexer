@@ -46,6 +46,7 @@ from chainidx.model import (
     GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
+    MintRecord,
     Point,
     PolicyDetail,
     PoolSummary,
@@ -170,6 +171,10 @@ class Store(Protocol):
 
     def asset_metadata(self, policy_id: str, asset_name: str) -> str | None:
         """Return an asset's CIP-25 metadata as a JSON string, or ``None``."""
+        ...
+
+    def recent_mints(self, limit: int = 50) -> list[MintRecord]:
+        """Return recent mint/burn events, newest first."""
         ...
 
     def cip68_metadata(self, policy_id: str, asset_name: str) -> dict[str, Any] | None:
@@ -601,6 +606,21 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "ALTER TABLE pool_registration ADD COLUMN metadata_url TEXT NOT NULL DEFAULT ''",
         ),
     ),
+    (
+        16,
+        (
+            # Mint/burn events (chapter 49), from a transaction's mint field.
+            # Block-keyed, so they roll back with their block.
+            "CREATE TABLE mint_event ("
+            "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  block_id   INTEGER NOT NULL REFERENCES block(id),"
+            "  tx_id      INTEGER NOT NULL REFERENCES tx(id),"
+            "  policy_id  TEXT    NOT NULL,"
+            "  asset_name TEXT    NOT NULL,"
+            "  quantity   INTEGER NOT NULL"
+            ")",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -619,6 +639,7 @@ _ROLLBACK_TABLES: tuple[str, ...] = (
     "certificate",
     "withdrawal",
     "asset_metadata",
+    "mint_event",
     "gov_action_proposal",
     "voting_procedure",
     "tx",
@@ -1157,6 +1178,23 @@ class SqliteStore:
             (policy_id, asset_name),
         ).fetchone()
         return str(row["metadata"]) if row is not None else None
+
+    def recent_mints(self, limit: int = 50) -> list[MintRecord]:
+        rows = self._conn.execute(
+            "SELECT t.hash AS tx_hash, m.policy_id AS policy_id, m.asset_name AS asset_name, "
+            "m.quantity AS quantity FROM mint_event m JOIN tx t ON t.id = m.tx_id "
+            "ORDER BY m.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            MintRecord(
+                tx_hash=r["tx_hash"],
+                policy_id=r["policy_id"],
+                asset_name=r["asset_name"],
+                quantity=r["quantity"],
+            )
+            for r in rows
+        ]
 
     def cip68_metadata(self, policy_id: str, asset_name: str) -> dict[str, Any] | None:
         # CIP-68 metadata rides on the reference token (same policy, name with the

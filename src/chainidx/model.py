@@ -100,6 +100,19 @@ class StakeAccountBalance:
 
 
 @dataclass(frozen=True)
+class MintRecord:
+    """A mint or burn event, for the Mint Transactions view (chapter 49).
+
+    ``quantity`` is positive for a mint and negative for a burn.
+    """
+
+    tx_hash: str
+    policy_id: str
+    asset_name: str
+    quantity: int
+
+
+@dataclass(frozen=True)
 class PolicyDetail:
     """The native assets minted under one policy id (chapter 36).
 
@@ -314,6 +327,7 @@ class Tx:
     proposals: tuple[GovActionProposal, ...] = ()
     votes: tuple[GovVote, ...] = ()
     withdrawals: tuple[Withdrawal, ...] = ()
+    mint: tuple[Asset, ...] = ()  # minted (positive) or burned (negative) assets
     fee: int = 0
     metadata: str = ""  # a JSON string of the transaction's metadata, or ""
 

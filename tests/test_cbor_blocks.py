@@ -180,6 +180,15 @@ def test_cip68_datum_and_inline_datum_decoding() -> None:
     assert _decode_output([b"\x00" * 29, 5]).datum == ""
 
 
+def test_decode_mint_field() -> None:
+    from chainidx.cbor_blocks import _decode_mint
+
+    body = {9: {b"\xaa" * 28: {b"TOK": 5, b"BRN": -2}}}
+    mints = {(m.asset_name, m.quantity) for m in _decode_mint(body)}
+    assert mints == {("544f4b", 5), ("42524e", -2)}  # a mint and a burn
+    assert _decode_mint({}) == ()
+
+
 def test_decode_pool_registration_cost_and_metadata() -> None:
     from chainidx.cbor_blocks import _decode_certificates
 

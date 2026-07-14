@@ -381,6 +381,19 @@ def create_app(
     def assets() -> list[dict[str, Any]]:
         return [_asset(a) for a in store.assets()]
 
+    @app.get("/assets/mints")
+    def mints(limit: int = 50) -> list[dict[str, Any]]:
+        return [
+            {
+                "tx_hash": m.tx_hash,
+                "policy_id": m.policy_id,
+                "asset_name": m.asset_name,
+                "asset_name_text": _asset_name_text(m.asset_name),
+                "quantity": m.quantity,
+            }
+            for m in store.recent_mints(limit)
+        ]
+
     @app.get("/assets/{policy_id}/{asset_name}")
     def asset(policy_id: str, asset_name: str) -> dict[str, Any]:
         detail = store.asset_detail(policy_id, asset_name)

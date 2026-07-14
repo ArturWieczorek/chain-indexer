@@ -67,6 +67,7 @@ _OUTPUTS = 1
 _FEE = 2
 _CERTIFICATES = 4
 _WITHDRAWALS = 5
+_MINT = 9
 _VOTING_PROCEDURES = 19
 _PROPOSAL_PROCEDURES = 20
 
@@ -369,6 +370,20 @@ def _metadata_json(aux: Any) -> str:
     return json.dumps({str(label): _metadatum_to_json(v) for label, v in meta.items()})
 
 
+def _decode_mint(body: dict[int, Any]) -> tuple[Asset, ...]:
+    """Decode the mint field (tx body key 9): ``{policy: {asset_name: quantity}}``.
+
+    A positive quantity is a mint, a negative one a burn; both are recorded.
+    """
+    out: list[Asset] = []
+    for policy_id, names in (body.get(_MINT) or {}).items():
+        for asset_name, quantity in names.items():
+            out.append(
+                Asset(policy_id=policy_id.hex(), asset_name=asset_name.hex(), quantity=quantity)
+            )
+    return tuple(out)
+
+
 def _decode_withdrawals(body: dict[int, Any]) -> tuple[Withdrawal, ...]:
     """Decode reward withdrawals (tx body key 5): ``{reward_account: coin}``."""
     return tuple(
@@ -389,6 +404,7 @@ def _decode_tx(tx_id: str, body: dict[int, Any], metadata: str = "") -> Tx:
         proposals=_decode_proposals(body, tx_id),
         votes=_decode_votes(body),
         withdrawals=_decode_withdrawals(body),
+        mint=_decode_mint(body),
         fee=body.get(_FEE, 0),
         metadata=metadata,
     )

@@ -607,6 +607,23 @@ def test_cip25_asset_metadata() -> None:
     assert b["metadata"] is None
 
 
+def test_mint_transactions() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(Tx("mint1", mint=(Asset("pol", "544f4b", 1), Asset("pol", "4f4c44", -3))),),
+        )
+    )
+    mints = TestClient(create_app(store)).get("/assets/mints").json()
+    assert len(mints) == 2
+    assert {m["quantity"] for m in mints} == {1, -3}  # a mint and a burn
+    assert all(m["tx_hash"] == "mint1" for m in mints)
+
+
 def test_cip68_metadata_from_reference_token() -> None:
     import cbor2
 

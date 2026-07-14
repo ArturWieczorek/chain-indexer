@@ -289,22 +289,50 @@
           `${rows}</table></div>`;
       }
 
-      async function tokensPage() {
+      function tokensTabs(active) {
+        const tab = (id, label) =>
+          `<a class="pill${id === active ? " active" : ""}" href="#/tokens${id ? "/" + id : ""}">${label}</a>`;
+        return `<div class="panel" style="display:flex;gap:.4rem">${tab("", "Tokens")}${tab("mints", "Mint Transactions")}</div>`;
+      }
+
+      async function tokensPage(tab) {
+        if (tab === "mints") return mintsPage();
         const assets = await api("/assets");
-        if (!assets.length) {
-          app.innerHTML = `<div class="panel muted">No native tokens in circulation.</div>`;
-          return;
-        }
-        const rows = assets
-          .map(
-            (a) =>
-              `<tr><td class="wrap">${link("asset/" + a.policy_id, a.asset_name, esc(a.asset_name) || "(no name)")}</td>` +
-              `<td class="wrap">${link("policy", a.policy_id, short(a.policy_id))}</td><td>${a.quantity}</td></tr>`
-          )
-          .join("");
+        const rows = assets.length
+          ? assets
+              .map(
+                (a) =>
+                  `<tr><td class="wrap">${link("asset/" + a.policy_id, a.asset_name, esc(a.asset_name) || "(no name)")}</td>` +
+                  `<td class="wrap">${link("policy", a.policy_id, short(a.policy_id))}</td><td>${a.quantity}</td></tr>`
+              )
+              .join("")
+          : `<tr><td colspan="3" class="muted">No native tokens in circulation.</td></tr>`;
         app.innerHTML =
-          `<h2>Native tokens</h2><div class="panel"><table>` +
+          `<h2>Tokens</h2>${tokensTabs("")}` +
+          `<div class="panel"><table>` +
           `<tr><th>Asset</th><th>Policy</th><th>Quantity</th></tr>${rows}</table></div>`;
+      }
+
+      async function mintsPage() {
+        const mints = await api("/assets/mints?limit=50");
+        const rows = mints.length
+          ? mints
+              .map((m) => {
+                const label = m.asset_name_text || m.asset_name || "(no name)";
+                const qty = m.quantity > 0 ? `+${m.quantity}` : `${m.quantity}`;
+                return (
+                  `<tr><td class="wrap">${link("asset/" + m.policy_id, m.asset_name, esc(label))}</td>` +
+                  `<td class="wrap">${link("policy", m.policy_id, short(m.policy_id))}</td>` +
+                  `<td>${qty}</td>` +
+                  `<td class="wrap">${link("tx", m.tx_hash, short(m.tx_hash))}</td></tr>`
+                );
+              })
+              .join("")
+          : `<tr><td colspan="4" class="muted">No mint transactions yet.</td></tr>`;
+        app.innerHTML =
+          `<h2>Tokens</h2>${tokensTabs("mints")}` +
+          `<div class="panel"><table>` +
+          `<tr><th>Asset</th><th>Policy</th><th>Quantity</th><th>Transaction</th></tr>${rows}</table></div>`;
       }
 
       async function assetPage(policyId, assetName) {
@@ -930,7 +958,7 @@
           else if (parts[0] === "withdrawals") await withdrawalsPage();
           else if (parts[0] === "drep" && parts[1]) await drepDetail(parts[1]);
           else if (parts[0] === "account" && parts[1]) await accountPage(parts[1]);
-          else if (parts[0] === "tokens") await tokensPage();
+          else if (parts[0] === "tokens") await tokensPage(parts[1]);
           else if (parts[0] === "asset" && parts[1] && parts[2]) await assetPage(parts[1], parts[2]);
           else if (parts[0] === "policy" && parts[1]) await policyPage(parts[1]);
           else if (parts[0] === "analytics") await analyticsPage();

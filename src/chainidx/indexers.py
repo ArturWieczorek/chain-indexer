@@ -303,6 +303,18 @@ class AssetMetadataIndexer:
                 )
 
 
+class MintIndexer:
+    """Records mint and burn events from a transaction's mint field."""
+
+    def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
+        for asset in tx.mint:
+            conn.execute(
+                "INSERT INTO mint_event (block_id, tx_id, policy_id, asset_name, quantity) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (block_id, tx_db_id, asset.policy_id, asset.asset_name, asset.quantity),
+            )
+
+
 def default_indexers() -> tuple[Indexer, ...]:
     """The indexers a store runs by default, in the order they must run."""
     return (
@@ -312,4 +324,5 @@ def default_indexers() -> tuple[Indexer, ...]:
         GovIndexer(),
         WithdrawalIndexer(),
         AssetMetadataIndexer(),
+        MintIndexer(),
     )
