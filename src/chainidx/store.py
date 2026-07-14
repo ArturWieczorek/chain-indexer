@@ -126,6 +126,10 @@ class Store(Protocol):
         """Return recent block hashes minted by a pool, newest first."""
         ...
 
+    def record_stake_distribution(self, stakes: dict[str, float], n_opt: int) -> None:
+        """Replace the live-stake snapshot (from local-state-query)."""
+        ...
+
     def delegation_of(self, stake_address: str) -> str | None:
         """Return the pool a stake address most recently delegated to."""
         ...
@@ -342,6 +346,17 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             # '' (unknown); new blocks record the issuer pool id.
             "ALTER TABLE block ADD COLUMN issuer TEXT NOT NULL DEFAULT ''",
             "CREATE INDEX idx_block_issuer ON block (issuer)",
+        ),
+    ),
+    (
+        6,
+        (
+            # A ledger-state snapshot (chapter 24): live stake per pool, plus a
+            # small key/value table for scalars like n_opt. This is NOT chain
+            # data - it is refreshed from local-state-query and simply replaced,
+            # so it is not block-keyed and does not roll back.
+            "CREATE TABLE pool_stat (pool_id TEXT PRIMARY KEY, stake REAL NOT NULL)",
+            "CREATE TABLE ledger_stat (key TEXT PRIMARY KEY, value REAL NOT NULL)",
         ),
     ),
 ]
@@ -649,6 +664,30 @@ class SqliteStore:
         ).fetchall()
         return tuple(r["pool_id"] for r in rows)
 
+    def record_stake_distribution(self, stakes: dict[str, float], n_opt: int) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM pool_stat")
+            self._conn.executemany(
+                "INSERT INTO pool_stat (pool_id, stake) VALUES (?, ?)", list(stakes.items())
+            )
+            self._conn.execute(
+                "INSERT INTO ledger_stat (key, value) VALUES ('n_opt', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (float(n_opt),),
+            )
+
+    def _ledger_stat(self, key: str) -> float:
+        row = self._conn.execute(
+            "SELECT value FROM ledger_stat WHERE key = ?", (key,)
+        ).fetchone()
+        return float(row["value"]) if row is not None else 0.0
+
+    def _live_stake(self, pool_id: str) -> float:
+        row = self._conn.execute(
+            "SELECT stake FROM pool_stat WHERE pool_id = ?", (pool_id,)
+        ).fetchone()
+        return float(row["stake"]) if row is not None else 0.0
+
     def _pool_summary(self, pool_id: str) -> PoolSummary:
         reg = self._conn.execute(
             "SELECT pledge, margin, reward_addr FROM pool_registration "
@@ -665,6 +704,10 @@ class SqliteStore:
             "AND d.tx_id = (SELECT MAX(tx_id) FROM delegation d2 WHERE d2.addr = d.addr)",
             (pool_id,),
         ).fetchone()["n"]
+        live_stake = self._live_stake(pool_id)
+        n_opt = self._ledger_stat("n_opt")
+        # Saturation of 1.0 means the pool holds the ideal 1/n_opt share.
+        saturation = live_stake * n_opt if n_opt > 0 else 0.0
         return PoolSummary(
             pool_id=pool_id,
             blocks_minted=blocks,
@@ -672,6 +715,8 @@ class SqliteStore:
             pledge=reg["pledge"] if reg is not None else 0,
             margin=reg["margin"] if reg is not None else 0.0,
             reward_address=reg["reward_addr"] if reg is not None else "",
+            live_stake=live_stake,
+            saturation=saturation,
         )
 
     def pool_summaries(self) -> list[PoolSummary]:

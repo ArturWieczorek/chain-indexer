@@ -160,6 +160,7 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     detail = client.get("/pools/pool1").json()
     assert detail["pool_id"] == "pool1"
     assert "recent_blocks" in detail
+    assert "live_stake" in detail and "saturation" in detail
     assert client.get("/pools/unknown").status_code == 404
 
     account = client.get("/accounts/stake_alice").json()

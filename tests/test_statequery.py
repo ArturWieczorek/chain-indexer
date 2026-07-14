@@ -58,4 +58,5 @@ def test_parse_protocol_params() -> None:
     assert params["min_fee_b"] == 155381
     assert params["key_deposit"] == 400000
     assert params["pool_deposit"] == 500000000
+    assert params["n_opt"] == 500
     assert params["coins_per_utxo_byte"] == 4310

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.6.0] - Live stake and saturation
+
+### Added
+
+- Migration 6 (`pool_stat`, `ledger_stat`) + `store.record_stake_distribution`;
+  `live_stake` and `saturation` on `PoolSummary`, the API, and pool pages.
+- `n_opt` in the protocol-params parser; a periodic local-state-query snapshot
+  task in the live runner.
+
 ## [1.5.0] - Governance
 
 ### Added

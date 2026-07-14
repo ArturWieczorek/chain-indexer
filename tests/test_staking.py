@@ -49,6 +49,29 @@ def test_pool_summaries_and_detail() -> None:
     store.close()
 
 
+def test_live_stake_and_saturation() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(Tx("tx1", certificates=(PoolRegistration("pool1", 1000, 0.03, "r"),)),),
+            issuer="pool1",
+        )
+    )
+    # Record a live-stake snapshot: pool1 holds 0.2% of stake; n_opt = 500.
+    store.record_stake_distribution({"pool1": 0.002}, n_opt=500)
+
+    summary = store.pool_detail("pool1")
+    assert summary is not None
+    assert abs(summary.live_stake - 0.002) < 1e-9
+    # saturation = live_stake * n_opt = 0.002 * 500 = 1.0 (fully saturated).
+    assert abs(summary.saturation - 1.0) < 1e-9
+    store.close()
+
+
 def test_a_pool_registration_makes_the_pool_active() -> None:
     store = SqliteStore()
     reg = PoolRegistration(pool_id="pool1", pledge=1000, margin=0.03, reward_address="stake_x")

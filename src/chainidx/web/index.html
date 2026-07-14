@@ -197,13 +197,15 @@
             (p) =>
               `<tr><td>${link("pool", p.pool_id, short(p.pool_id))}</td>` +
               `<td>${p.blocks_minted}</td><td>${p.delegators}</td>` +
-              `<td class="lovelace">${ada(p.pledge)}</td>` +
+              `<td>${(p.live_stake * 100).toFixed(2)}%</td>` +
+              `<td>${(p.saturation * 100).toFixed(1)}%</td>` +
               `<td>${(p.margin * 100).toFixed(1)}%</td></tr>`
           )
           .join("");
         app.innerHTML =
           `<h2>Stake pools</h2><div class="panel"><table>` +
-          `<tr><th>Pool</th><th>Blocks</th><th>Delegators</th><th>Pledge</th><th>Margin</th></tr>` +
+          `<tr><th>Pool</th><th>Blocks</th><th>Delegators</th><th>Live stake</th>` +
+          `<th>Saturation</th><th>Margin</th></tr>` +
           `${rows}</table></div>`;
       }
 
@@ -269,6 +271,8 @@
           `<div>pool id</div><div>${esc(p.pool_id)}</div>` +
           `<div>blocks minted</div><div>${p.blocks_minted}</div>` +
           `<div>delegators</div><div>${p.delegators}</div>` +
+          `<div>live stake</div><div>${(p.live_stake * 100).toFixed(3)}%</div>` +
+          `<div>saturation</div><div>${(p.saturation * 100).toFixed(1)}%</div>` +
           `<div>pledge</div><div class="lovelace">${ada(p.pledge)}</div>` +
           `<div>margin</div><div>${(p.margin * 100).toFixed(2)}%</div>` +
           `<div>reward address</div><div>${esc(p.reward_address)}</div></div></div>` +

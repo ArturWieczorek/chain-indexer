@@ -216,6 +216,8 @@ class PoolSummary:
     pledge: int
     margin: float
     reward_address: str
+    live_stake: float = 0.0  # fraction of total active stake (ledger state, chapter 24)
+    saturation: float = 0.0  # live_stake relative to the ideal 1/n_opt share
 
 
 @dataclass(frozen=True)

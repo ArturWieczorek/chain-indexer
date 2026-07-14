@@ -50,16 +50,34 @@ def create_live_app(store: Store, bus: EventBus, network: NetworkParams | None =
     return app
 
 
+async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  # pragma: no cover
+    """Periodically refresh the live-stake snapshot via local-state-query."""
+    import asyncio
+
+    from chainidx.localstate import LocalStateClient
+
+    client = LocalStateClient(socket_path, magic)
+    while True:
+        try:
+            snap = await client.snapshot()
+            store.record_stake_distribution(
+                {p.pool_id: p.stake for p in snap.stake_distribution},
+                int(snap.protocol_params.get("n_opt", 0)),
+            )
+        except Exception:  # noqa: BLE001 - a transient node hiccup should not stop the loop
+            pass
+        await asyncio.sleep(20)
+
+
 async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: no cover
     import asyncio
 
     import uvicorn
 
+    from chainidx.api import load_network
     from chainidx.follow import Follower
     from chainidx.node import NodeSource
     from chainidx.store import SqliteStore
-
-    from chainidx.api import load_network
 
     store = SqliteStore(db)
     bus = EventBus()
@@ -68,7 +86,9 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     app = create_live_app(store, bus, load_network())
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
     print("live view on http://127.0.0.1:8000/live")
-    await asyncio.gather(server.serve(), follower.run())
+    await asyncio.gather(
+        server.serve(), follower.run(), _snapshot_loop(store, socket_path, magic)
+    )
 
 
 def _main() -> None:  # pragma: no cover

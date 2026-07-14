@@ -120,6 +120,7 @@ def parse_protocol_params(result: list[Any]) -> dict[str, int]:
         "max_block_header_size": p[4],
         "key_deposit": p[5],
         "pool_deposit": p[6],
+        "n_opt": p[8],  # target number of pools; used for saturation
         "min_pool_cost": p[13],
         "coins_per_utxo_byte": p[14],
     }

@@ -79,6 +79,8 @@ def _pool(summary: PoolSummary) -> dict[str, Any]:
         "pledge": summary.pledge,
         "margin": summary.margin,
         "reward_address": summary.reward_address,
+        "live_stake": summary.live_stake,
+        "saturation": summary.saturation,
     }
 
 
