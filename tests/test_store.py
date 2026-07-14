@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from chainidx.model import Block, GovActionProposal, GovVote, Tx
+from chainidx.model import Asset, Block, GovActionProposal, GovVote, Tx, TxOut
 from chainidx.store import SqliteStore
 
 
@@ -169,6 +169,35 @@ def test_drep_votes_resolves_action_type_and_marks_unknown() -> None:
     assert by_action["g1"].action_type == "InfoAction"
     assert by_action["g1"].vote == "Yes"
     assert by_action["g_elsewhere"].action_type == "Unknown"
+    store.close()
+
+
+def test_policy_detail_groups_assets_under_a_policy() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        block(
+            1,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    outputs=(
+                        TxOut(
+                            "addrA",
+                            2_000_000,
+                            assets=(Asset("polX", "436861696e", 1), Asset("polX", "0a", 5)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+    detail = store.policy_detail("polX")
+    assert detail is not None
+    assert detail.asset_count == 2
+    assert {a.asset_name for a in detail.assets} == {"436861696e", "0a"}
+    assert store.policy_detail("nope") is None
     store.close()
 
 

@@ -363,6 +363,27 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_asset_name_decoding_and_policy_page() -> None:
+    from chainidx.api import _asset_name_text
+
+    assert _asset_name_text("436861696e4964784e4654") == "ChainIdxNFT"
+    assert _asset_name_text("ff") == ""  # not valid UTF-8
+    assert _asset_name_text("00") == ""  # a control byte is not printable
+    assert _asset_name_text("TOK") == ""  # not valid hex
+
+    store = SqliteStore()
+    hexname = "436861696e4964784e4654"  # "ChainIdxNFT"
+    nft = TxOut("addrA", 2_000_000, assets=(Asset("polX", hexname, 1),))
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=(Tx("tx1", outputs=(nft,)),)))
+    api = TestClient(create_app(store))
+    a = api.get(f"/assets/polX/{hexname}").json()
+    assert a["asset_name_text"] == "ChainIdxNFT"
+    pol = api.get("/policies/polX").json()
+    assert pol["policy_id"] == "polX"
+    assert pol["asset_count"] == 1
+    assert pol["assets"][0]["asset_name_text"] == "ChainIdxNFT"
+
+
 def test_assets_pools_accounts_governance(client: TestClient) -> None:
     assets = client.get("/assets").json()
     assert assets == [{"policy_id": "pol", "asset_name": "TOK", "quantity": 3}]
@@ -370,7 +391,13 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     detail = client.get("/assets/pol/TOK").json()
     assert detail["quantity"] == 3
     assert detail["holders"] == 1
+    assert detail["asset_name_text"] == ""  # "TOK" is not valid hex
     assert client.get("/assets/pol/MISSING").status_code == 404
+
+    pol = client.get("/policies/pol").json()
+    assert pol["asset_count"] == 1
+    assert pol["assets"][0]["asset_name"] == "TOK"
+    assert client.get("/policies/unknown").status_code == 404
 
     pools = client.get("/pools").json()
     assert len(pools) == 1

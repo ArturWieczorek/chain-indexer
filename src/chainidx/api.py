@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException
 from chainidx import bech32
 from chainidx.model import (
     Asset,
+    AssetDetail,
     Block,
     CertificateRecord,
     DRepSummary,
@@ -84,11 +85,30 @@ def _stake_credential(arg: str) -> str:
     return arg
 
 
+def _asset_name_text(asset_name_hex: str) -> str:
+    """The asset name decoded as printable UTF-8 text, or ``""`` if it is not."""
+    try:
+        text = bytes.fromhex(asset_name_hex).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+    return text if text.isprintable() else ""
+
+
 def _asset(asset: Asset) -> dict[str, Any]:
     return {
         "policy_id": asset.policy_id,
         "asset_name": asset.asset_name,
         "quantity": asset.quantity,
+    }
+
+
+def _asset_detail(detail: AssetDetail) -> dict[str, Any]:
+    return {
+        "policy_id": detail.policy_id,
+        "asset_name": detail.asset_name,
+        "asset_name_text": _asset_name_text(detail.asset_name),
+        "quantity": detail.quantity,
+        "holders": detail.holders,
     }
 
 
@@ -288,11 +308,17 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         detail = store.asset_detail(policy_id, asset_name)
         if detail is None:
             raise HTTPException(status_code=404, detail="asset not found")
+        return _asset_detail(detail)
+
+    @app.get("/policies/{policy_id}")
+    def policy(policy_id: str) -> dict[str, Any]:
+        detail = store.policy_detail(policy_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="policy not found")
         return {
             "policy_id": detail.policy_id,
-            "asset_name": detail.asset_name,
-            "quantity": detail.quantity,
-            "holders": detail.holders,
+            "asset_count": detail.asset_count,
+            "assets": [_asset_detail(a) for a in detail.assets],
         }
 
     @app.get("/pools")

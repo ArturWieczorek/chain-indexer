@@ -39,3 +39,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch33 - Clickable governance and epoch blocks (v1.15.0)
 - [x] ch34 - Certificates browser (v1.16.0)
 - [x] ch35 - Transaction detail tabs (v1.17.0)
+- [x] ch36 - Policy pages and readable asset names (v1.18.0)

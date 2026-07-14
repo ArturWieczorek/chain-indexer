@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.18.0] - Policy pages and readable asset names
+
+### Added
+
+- `PolicyDetail` model and `store.policy_detail`; `/policies/{policy_id}` lists the
+  assets minted under a policy.
+- `_asset_name_text` decodes asset names to printable UTF-8; asset responses now
+  include `asset_name_text` alongside the hex `asset_name`.
+- A Minting policy page in the explorer, policy links from the asset and Tokens
+  pages, and decoded asset names in the UI.
+
 ## [1.17.0] - Transaction detail tabs
 
 ### Added

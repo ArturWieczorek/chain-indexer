@@ -42,6 +42,19 @@ class AssetDetail:
 
 
 @dataclass(frozen=True)
+class PolicyDetail:
+    """The native assets minted under one policy id (chapter 36).
+
+    A policy id is the hash of the minting policy; every asset it can mint shares
+    it. This groups them so a policy has a page of its own.
+    """
+
+    policy_id: str
+    asset_count: int
+    assets: tuple[AssetDetail, ...]
+
+
+@dataclass(frozen=True)
 class TxOut:
     """A transaction output: value sent to an address.
 

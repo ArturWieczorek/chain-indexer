@@ -42,6 +42,7 @@ from chainidx.model import (
     GovActionSummary,
     GovVoteRecord,
     Point,
+    PolicyDetail,
     PoolSummary,
     ResolvedInput,
     Tip,
@@ -129,6 +130,10 @@ class Store(Protocol):
 
     def asset_detail(self, policy_id: str, asset_name: str) -> AssetDetail | None:
         """Return one asset's total held quantity and holder count, or ``None``."""
+        ...
+
+    def policy_detail(self, policy_id: str) -> PolicyDetail | None:
+        """Return the assets minted under a policy id, or ``None`` if there are none."""
         ...
 
     def pools(self) -> tuple[str, ...]:
@@ -889,6 +894,28 @@ class SqliteStore:
             quantity=int(row["qty"]),
             holders=int(row["holders"]),
         )
+
+    def policy_detail(self, policy_id: str) -> PolicyDetail | None:
+        rows = self._conn.execute(
+            "SELECT m.asset_name AS asset_name, SUM(m.quantity) AS qty, "
+            "COUNT(DISTINCT o.address) AS holders FROM ma_tx_out m "
+            "JOIN tx_out o ON o.id = m.tx_out_id "
+            "WHERE m.policy_id = ? AND o.consumed_by_tx_id IS NULL "
+            "GROUP BY m.asset_name ORDER BY m.asset_name",
+            (policy_id,),
+        ).fetchall()
+        if not rows:
+            return None
+        assets = tuple(
+            AssetDetail(
+                policy_id=policy_id,
+                asset_name=r["asset_name"],
+                quantity=int(r["qty"]),
+                holders=int(r["holders"]),
+            )
+            for r in rows
+        )
+        return PolicyDetail(policy_id=policy_id, asset_count=len(assets), assets=assets)
 
     def pools(self) -> tuple[str, ...]:
         # A pool counts as active if it has a registration and no retirement.
