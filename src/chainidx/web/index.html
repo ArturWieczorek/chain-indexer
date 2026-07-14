@@ -348,12 +348,21 @@
               `<td class="lovelace">${ada(o.lovelace)}</td></tr>`
           )
           .join("");
+        const listPanel = (title, items) =>
+          items && items.length
+            ? `<h2>${title}</h2><div class="panel"><ul style="margin:0;padding-left:1.1rem">` +
+              items.map((x) => `<li class="wrap">${esc(x)}</li>`).join("") +
+              `</ul></div>`
+            : "";
         app.innerHTML =
           `<h2>Transaction</h2><div class="panel"><div class="kv">` +
           `<div>id</div><div>${esc(t.tx_id)}</div>` +
           `<div>block</div><div>${link("block", t.block_hash, t.block_hash)}</div></div></div>` +
           `<h2>Inputs</h2><div class="panel"><table>${ins}</table></div>` +
-          `<h2>Outputs</h2><div class="panel"><table>${outs}</table></div>`;
+          `<h2>Outputs</h2><div class="panel"><table>${outs}</table></div>` +
+          listPanel("Certificates", t.certificates) +
+          listPanel("Governance actions", t.proposals) +
+          listPanel("Votes", t.votes);
       }
 
       async function address(addr) {

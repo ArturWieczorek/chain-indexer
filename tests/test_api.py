@@ -232,7 +232,13 @@ def test_tx_detail(client: TestClient) -> None:
     assert tx["block_hash"] == "b2"
     assert tx["inputs"] == [{"tx_id": "tx1", "index": 0}]
     assert tx["outputs"][0]["address"] == "bob"
+    assert tx["proposals"] == ["InfoAction: gov1"]
+    assert tx["votes"] == ["DRep voted Yes on gov1"]
     assert client.get("/txs/missing").status_code == 404
+
+    # tx1 carried the staking and DRep certificates.
+    tx1 = client.get("/txs/tx1").json()
+    assert any("pool registration" in c for c in tx1["certificates"])
 
 
 def test_address_balance_and_utxos(client: TestClient) -> None:

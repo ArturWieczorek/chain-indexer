@@ -217,7 +217,12 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         detail = store.get_tx(tx_hash)
         if detail is None:
             raise HTTPException(status_code=404, detail="transaction not found")
-        return _tx(detail)
+        out = _tx(detail)
+        activity = store.tx_activity(tx_hash)
+        out["certificates"] = list(activity.certificates)
+        out["proposals"] = list(activity.proposals)
+        out["votes"] = list(activity.votes)
+        return out
 
     @app.get("/addresses/{address}")
     def address(address: str) -> dict[str, Any]:

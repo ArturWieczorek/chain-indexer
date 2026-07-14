@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
@@ -42,6 +42,7 @@ from chainidx.model import (
     PoolSummary,
     Tip,
     Tx,
+    TxActivity,
     TxDetail,
     TxIn,
     TxOut,
@@ -105,6 +106,10 @@ class Store(Protocol):
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
         """Return a transaction's block, inputs, and outputs, or ``None``."""
+        ...
+
+    def tx_activity(self, tx_hash: str) -> TxActivity:
+        """Return a transaction's certificates and governance, as descriptions."""
         ...
 
     def assets(self) -> tuple[Asset, ...]:
@@ -669,6 +674,58 @@ class SqliteStore:
             inputs=tuple(TxIn(tx_id=r["tx_out_hash"], index=r["tx_out_index"]) for r in in_rows),
             outputs=tuple(TxOut(address=r["address"], lovelace=r["lovelace"]) for r in out_rows),
         )
+
+    def tx_activity(self, tx_hash: str) -> TxActivity:
+        row = self._conn.execute("SELECT id FROM tx WHERE hash = ?", (tx_hash,)).fetchone()
+        if row is None:
+            return TxActivity(certificates=(), proposals=(), votes=())
+        tx_id = row["id"]
+
+        def q(sql: str) -> list[Any]:
+            return self._conn.execute(sql, (tx_id,)).fetchall()
+
+        certs: list[str] = []
+        certs += [
+            f"stake registration: {r['addr']}"
+            for r in q("SELECT addr FROM stake_registration WHERE tx_id = ?")
+        ]
+        certs += [
+            f"stake deregistration: {r['addr']}"
+            for r in q("SELECT addr FROM stake_deregistration WHERE tx_id = ?")
+        ]
+        certs += [
+            f"delegation: {r['addr']} -> {r['pool_id']}"
+            for r in q("SELECT addr, pool_id FROM delegation WHERE tx_id = ?")
+        ]
+        certs += [
+            f"pool registration: {r['pool_id']}"
+            for r in q("SELECT pool_id FROM pool_registration WHERE tx_id = ?")
+        ]
+        certs += [
+            f"pool retirement: {r['pool_id']} @ epoch {r['retiring_epoch']}"
+            for r in q("SELECT pool_id, retiring_epoch FROM pool_retirement WHERE tx_id = ?")
+        ]
+        certs += [
+            f"DRep registration: {r['drep_id']}"
+            for r in q("SELECT drep_id FROM drep_registration WHERE tx_id = ?")
+        ]
+        certs += [
+            f"DRep retirement: {r['drep_id']}"
+            for r in q("SELECT drep_id FROM drep_deregistration WHERE tx_id = ?")
+        ]
+
+        proposals = [
+            f"{r['action_type']}: {r['gov_action_id']}"
+            for r in q("SELECT action_type, gov_action_id FROM gov_action_proposal WHERE tx_id = ?")
+        ]
+        votes = [
+            f"{r['voter_role']} voted {r['vote']} on {r['gov_action_id']}"
+            for r in q(
+                "SELECT voter_role, vote, gov_action_id FROM voting_procedure WHERE tx_id = ?"
+            )
+        ]
+
+        return TxActivity(certificates=tuple(certs), proposals=tuple(proposals), votes=tuple(votes))
 
     def assets(self) -> tuple[Asset, ...]:
         rows = self._conn.execute(

@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.10.0] - Transaction detail
+
+### Added
+
+- `TxActivity` + `store.tx_activity`; `/txs/{hash}` and the explorer tx page now
+  show certificates, governance proposals, and votes.
+
 ## [1.9.0] - Account links in the UI
 
 ### Added

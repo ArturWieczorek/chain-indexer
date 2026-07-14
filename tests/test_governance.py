@@ -6,7 +6,10 @@ from chainidx.model import (
     DRepRegistration,
     GovActionProposal,
     GovVote,
+    StakeDelegation,
+    StakeRegistration,
     Tx,
+    TxActivity,
 )
 from chainidx.store import SqliteStore
 
@@ -96,6 +99,39 @@ def test_governance_summaries_votes_and_dreps() -> None:
     assert dreps[0].drep_id == "drep1"
     assert dreps[0].deposit == 500
     assert dreps[0].votes_cast == 1
+    store.close()
+
+
+def test_tx_activity_lists_certificates_and_governance() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        blk(
+            1,
+            "b1",
+            "genesis",
+            (
+                Tx(
+                    "tx1",
+                    certificates=(
+                        StakeRegistration("credA"),
+                        StakeDelegation("credA", "poolX"),
+                        DRepRegistration("drep1", 500),
+                    ),
+                    proposals=(GovActionProposal("gov1", "InfoAction", 0, "r"),),
+                    votes=(GovVote("gov1", "DRep", "drep1", "Yes"),),
+                ),
+            ),
+        )
+    )
+    activity = store.tx_activity("tx1")
+    joined = " | ".join(activity.certificates)
+    assert "stake registration: credA" in joined
+    assert "delegation: credA -> poolX" in joined
+    assert "DRep registration: drep1" in joined
+    assert activity.proposals == ("InfoAction: gov1",)
+    assert activity.votes == ("DRep voted Yes on gov1",)
+
+    assert store.tx_activity("missing") == TxActivity((), (), ())
     store.close()
 
 

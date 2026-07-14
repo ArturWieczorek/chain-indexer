@@ -302,6 +302,16 @@ class LedgerSnapshot:
 
 
 @dataclass(frozen=True)
+class TxActivity:
+    """What a transaction did beyond moving value (chapter 28): its certificates
+    and governance actions/votes, as short human-readable descriptions."""
+
+    certificates: tuple[str, ...]
+    proposals: tuple[str, ...]
+    votes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Origin:
     """The position before the first block (the genesis boundary).
 
