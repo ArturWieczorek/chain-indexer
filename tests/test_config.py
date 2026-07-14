@@ -66,6 +66,13 @@ def test_load_without_a_file_uses_env_and_defaults() -> None:
     assert cfg.db_path == "chain.db"
 
 
+def test_postgres_dsn_from_file_and_env() -> None:
+    assert config.from_dict({"postgres_dsn": "dbname=chainidx"}).postgres_dsn == "dbname=chainidx"
+    assert config.from_dict({}).postgres_dsn == ""  # SQLite by default
+    cfg = config.load(env={"CHAINIDX_POSTGRES_DSN": "dbname=x"})
+    assert cfg.postgres_dsn == "dbname=x"
+
+
 def test_indexers_for_selects_optional_features() -> None:
     names = {type(i).__name__ for i in indexers_for(frozenset({"mints"}))}
     assert {"OutputIndexer", "InputIndexer", "MintIndexer"} <= names  # core + mints

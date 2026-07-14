@@ -66,3 +66,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch60 - Live status colour (v1.42.0)
 - [x] ch61 - Chart axes and gridlines (v1.43.0)
 - [x] ch62 - A readable blocks-per-epoch chart (v1.44.0)
+- [x] ch63 - A Postgres backend (v1.45.0)

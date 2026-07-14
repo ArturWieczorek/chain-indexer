@@ -31,6 +31,7 @@ class Config:
     network_magic: int = 42
     genesis_path: str = ""
     db_path: str = "chain.db"
+    postgres_dsn: str = ""  # if set, use the Postgres backend instead of SQLite
     fetch_metadata: bool = False
     ipfs_gateway: str = ""
     stake_history: bool = False
@@ -52,6 +53,7 @@ def from_dict(data: dict[str, object]) -> Config:
         network_magic=int(str(data.get("network_magic", 42))),
         genesis_path=str(data.get("genesis_path", "")),
         db_path=str(data.get("db_path", "chain.db")),
+        postgres_dsn=str(data.get("postgres_dsn", "")),
         fetch_metadata=bool(data.get("fetch_metadata", False)),
         ipfs_gateway=str(data.get("ipfs_gateway", "")),
         stake_history=bool(data.get("stake_history", False)),
@@ -68,6 +70,7 @@ def _with_env(cfg: Config, env: dict[str, str]) -> Config:
         network_magic=int(magic) if magic else cfg.network_magic,
         genesis_path=env.get("CHAINIDX_GENESIS") or cfg.genesis_path,
         db_path=env.get("CHAINIDX_DB") or cfg.db_path,
+        postgres_dsn=env.get("CHAINIDX_POSTGRES_DSN") or cfg.postgres_dsn,
         fetch_metadata=cfg.fetch_metadata or bool(env.get("CHAINIDX_FETCH_METADATA")),
         ipfs_gateway=env.get("CHAINIDX_IPFS_GATEWAY") or cfg.ipfs_gateway,
         stake_history=cfg.stake_history or bool(env.get("CHAINIDX_STAKE_HISTORY")),

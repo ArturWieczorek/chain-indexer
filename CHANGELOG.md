@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.45.0] - A Postgres backend
+
+### Added
+
+- `postgresstore.py`: `PostgresStore(SqliteStore)` plus a psycopg adapter that
+  translates placeholders, DDL, and `lastrowid`, so the store, indexers, and
+  migrations run over Postgres unchanged. Verified against a real Postgres.
+- `Config.postgres_dsn` / `CHAINIDX_POSTGRES_DSN` selects the backend (SQLite by
+  default); a `chainidx[postgres]` optional dependency.
+
 ## [1.44.0] - A readable blocks-per-epoch chart
 
 ### Changed

@@ -97,10 +97,18 @@ async def _run_live(cfg: object) -> None:  # pragma: no cover
     from chainidx.network import NetworkParams
     from chainidx.node import NodeSource
     from chainidx.offchain import fetch_pool_metadata
+    from chainidx.postgresstore import PostgresStore
     from chainidx.store import SqliteStore
 
     assert isinstance(cfg, Config)
-    store = SqliteStore(cfg.db_path, indexers=indexers_for(cfg.features))
+    indexers = indexers_for(cfg.features)
+    # Postgres backend when a DSN is configured (chapter 63), else SQLite. Importing
+    # PostgresStore does not load psycopg; that happens only on instantiation.
+    store = (
+        PostgresStore(cfg.postgres_dsn, indexers=indexers)
+        if cfg.postgres_dsn
+        else SqliteStore(cfg.db_path, indexers=indexers)
+    )
     bus = EventBus()
     source = NodeSource(cfg.socket_path, cfg.network_magic)
     follower = Follower(source, store, bus=bus)
