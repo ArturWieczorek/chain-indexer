@@ -66,6 +66,23 @@ def test_load_without_a_file_uses_env_and_defaults() -> None:
     assert cfg.db_path == "chain.db"
 
 
+def test_host_and_port_default_and_are_configurable() -> None:
+    default = config.from_dict({})
+    assert default.host == "127.0.0.1"
+    assert default.port == 8000
+    cfg = config.from_dict({"host": "0.0.0.0", "port": 9001})
+    assert cfg.host == "0.0.0.0"
+    assert cfg.port == 9001
+
+
+def test_host_and_port_from_env_win_over_file(tmp_path: Path) -> None:
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({"host": "10.0.0.1", "port": 8080}))
+    cfg = config.load(str(path), env={"CHAINIDX_HOST": "0.0.0.0", "CHAINIDX_PORT": "9999"})
+    assert cfg.host == "0.0.0.0"
+    assert cfg.port == 9999
+
+
 def test_postgres_dsn_from_file_and_env() -> None:
     assert config.from_dict({"postgres_dsn": "dbname=chainidx"}).postgres_dsn == "dbname=chainidx"
     assert config.from_dict({}).postgres_dsn == ""  # SQLite by default

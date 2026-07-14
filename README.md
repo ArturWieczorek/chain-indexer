@@ -231,6 +231,42 @@ trying to be a fast full-history mainnet indexer.
 
 ---
 
+## Running more than one network at once
+
+You can follow several networks in parallel - say preprod **and** preview - by
+giving each its own **database** and its own **port**. Nothing is shared and nothing
+is overwritten.
+
+> **Important:** each network needs its own `db_path` (or `postgres_dsn`). The
+> database is not tagged with a network, so pointing two different networks at the
+> same database would mix their blocks into one corrupt index. Keep them separate.
+
+One config file per network:
+
+```jsonc
+// preprod.json
+{ "socket_path": "/preprod/node.socket", "network_magic": 1,
+  "genesis_path": "/preprod/shelley-genesis.json", "db_path": "preprod.db", "port": 8000 }
+
+// preview.json
+{ "socket_path": "/preview/node.socket", "network_magic": 2,
+  "genesis_path": "/preview/shelley-genesis.json", "db_path": "preview.db", "port": 8001 }
+```
+
+Then start one indexer per network, each in its own terminal:
+
+```bash
+CHAINIDX_CONFIG=preprod.json python -m chainidx.live   # explorer on http://127.0.0.1:8000/
+CHAINIDX_CONFIG=preview.json python -m chainidx.live   # explorer on http://127.0.0.1:8001/
+```
+
+The `host` and `port` fields (default `127.0.0.1` and `8000`) control where each
+explorer listens; give each network a different port so they do not collide. Setting
+`host` to `0.0.0.0` exposes an explorer to your network - only do that on a trusted
+one, as there is no authentication.
+
+---
+
 ## Optional features
 
 These are off by default. Turn them on in `config.json` (or with the matching

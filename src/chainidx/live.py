@@ -117,8 +117,10 @@ async def _run_live(cfg: object) -> None:  # pragma: no cover
     fetcher = fetch_pool_metadata if cfg.fetch_metadata else None
     gateway = cfg.ipfs_gateway or None
     app = create_live_app(store, bus, network, mempool_client.status_sync, fetcher, gateway)
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
-    print("live view on http://127.0.0.1:8000/live")
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=cfg.host, port=cfg.port, log_level="warning")
+    )
+    print(f"live view on http://{cfg.host}:{cfg.port}/live")
     await asyncio.gather(
         server.serve(),
         follower.run(),

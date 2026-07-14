@@ -30,6 +30,8 @@ class Config:
     socket_path: str = ""
     network_magic: int = 42
     genesis_path: str = ""
+    host: str = "127.0.0.1"  # where the explorer/API listens
+    port: int = 8000  # change it to run more than one network at once
     db_path: str = "chain.db"
     postgres_dsn: str = ""  # if set, use the Postgres backend instead of SQLite
     fetch_metadata: bool = False
@@ -52,6 +54,8 @@ def from_dict(data: dict[str, object]) -> Config:
         socket_path=str(data.get("socket_path", "")),
         network_magic=int(str(data.get("network_magic", 42))),
         genesis_path=str(data.get("genesis_path", "")),
+        host=str(data.get("host", "127.0.0.1")),
+        port=int(str(data.get("port", 8000))),
         db_path=str(data.get("db_path", "chain.db")),
         postgres_dsn=str(data.get("postgres_dsn", "")),
         fetch_metadata=bool(data.get("fetch_metadata", False)),
@@ -64,11 +68,14 @@ def from_dict(data: dict[str, object]) -> Config:
 def _with_env(cfg: Config, env: dict[str, str]) -> Config:
     """Layer environment variables over a config; env wins so overrides are easy."""
     magic = env.get("CHAINIDX_MAGIC")
+    port = env.get("CHAINIDX_PORT")
     return replace(
         cfg,
         socket_path=env.get("CARDANO_NODE_SOCKET_PATH") or cfg.socket_path,
         network_magic=int(magic) if magic else cfg.network_magic,
         genesis_path=env.get("CHAINIDX_GENESIS") or cfg.genesis_path,
+        host=env.get("CHAINIDX_HOST") or cfg.host,
+        port=int(port) if port else cfg.port,
         db_path=env.get("CHAINIDX_DB") or cfg.db_path,
         postgres_dsn=env.get("CHAINIDX_POSTGRES_DSN") or cfg.postgres_dsn,
         fetch_metadata=cfg.fetch_metadata or bool(env.get("CHAINIDX_FETCH_METADATA")),
