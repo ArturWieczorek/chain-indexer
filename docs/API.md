@@ -967,6 +967,43 @@ its bytes) is unknown and returns `404`:
 }
 ```
 
+### GET /scripts/{script_hash}
+
+Resolve a reference script by its hash - the language and CBOR of a script attached
+to an output (the Conway `referenceScript`, CIP-33). This is kupo's `/scripts`.
+
+| Path param | Description |
+|------------|-------------|
+| `script_hash` | The script's blake2b-224 hash (hex). |
+
+Example request:
+
+```bash
+curl http://127.0.0.1:8000/scripts/bb7d4c3f4a6fa571b8bedd2be462c8661517d5e80dca2589a432be25
+```
+
+```json
+{
+  "script_hash": "bb7d4c3f4a6fa571b8bedd2be462c8661517d5e80dca2589a432be25",
+  "type": "plutusV3",
+  "cbor": "8203587a587801010029800aba2aba1aab9eaab9dab9a4888896600264646644b30013370e900118031baa002899..."
+}
+```
+
+`type` is `native`, `plutusV1`, `plutusV2`, or `plutusV3`; `cbor` is the script's
+`[language, body]` CBOR as hex. The hash is the ledger's own script hash, so it
+matches the script's address. A hash never seen as a reference script returns `404`:
+
+```json
+{
+  "detail": "script not found"
+}
+```
+
+Where a hash comes from: every output in `/txs/{hash}` and `/addresses/{addr}`
+carries a `reference_script_hash` (and `datum_hash`) when it has one - follow that to
+this endpoint.
+
 ---
 
 ## Pools

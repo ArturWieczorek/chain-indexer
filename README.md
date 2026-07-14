@@ -385,28 +385,86 @@ always wins over the file - handy for a one-off override without editing the con
 
 ---
 
-## Webhooks: push events out
+## Watching and reacting (kupo + adder style)
 
-The indexer can POST events to your own HTTP endpoints as they happen - the same
-idea as [adder](https://github.com/blinklabs-io/adder). Add a `webhooks` list to
-`config.json`, one entry per endpoint, with an optional filter:
+Two focused Cardano tools inspired parts of this project, and both capabilities are
+built in. This section shows each with a real request and its output; the full
+reference is in [`docs/API.md`](docs/API.md).
+
+### kupo-style: watch and match UTxOs
+
+[kupo](https://github.com/CardanoSolutions/kupo) answers "give me the UTxOs matching
+this address / policy". `GET /matches/{pattern}` does the same over the index we
+already keep. A `pattern` is `*` (everything), an address (`addr_test1...`), a stake
+address (`stake_test1...`), a policy id (56 hex), or `policyid.assetname`; `?spent=`
+is `unspent` (default), `spent`, or `all`.
+
+```bash
+curl "http://127.0.0.1:8000/matches/<policyid>"
+```
+
+```json
+[
+  {
+    "transaction_id": "a0b1c2d3...ef1",
+    "output_index": 0,
+    "output_reference": "a0b1c2d3...ef1#0",
+    "address": "addr_test1qz...",
+    "value": { "coins": 5000000, "assets": [ { "policy_id": "...", "asset_name": "4368...", "quantity": 1 } ] },
+    "datum": "",
+    "datum_hash": "",
+    "spent": false
+  }
+]
+```
+
+Two companion lookups return what an output points at:
+
+```bash
+curl http://127.0.0.1:8000/datums/<datum_hash>    # -> {"datum": "d8799f..."} (inline datum bytes)
+curl http://127.0.0.1:8000/scripts/<script_hash>  # -> {"type": "plutusV3", "cbor": "8203587a..."}
+```
+
+Every output in `/txs/{hash}` and `/addresses/{addr}` carries the `datum_hash` and
+`reference_script_hash` to feed these (and the explorer links them for you).
+
+### adder-style: push events to webhooks
+
+[adder](https://github.com/blinklabs-io/adder) tails the chain and pushes filtered
+events to outputs. Our event bus already feeds the **live dashboard** at `/live`;
+adding a `webhooks` list to `config.json` also POSTs events to your own HTTP
+endpoints:
 
 ```json
 {
   "webhooks": [
-    { "url": "https://example.com/hook",   "addresses": ["addr_test1..."] },
-    { "url": "https://example.com/reorgs",  "types": ["rollback"] },
+    { "url": "https://example.com/hook",    "addresses": ["addr_test1..."] },
+    { "url": "https://example.com/reorgs",   "types": ["rollback"] },
     { "url": "https://example.com/mypolicy", "policies": ["<policyid>"] }
   ]
 }
 ```
 
-Each event is POSTed as JSON. The filter fields (`types`, `addresses`, `policies`,
-`assets`) are all optional - list several values to match **any** of them, combine
-fields to require **all** of them, and omit a field to not filter on it (so `{"url":
-...}` alone receives everything). A down endpoint is skipped, never blocking the
-indexer. Because a reorg is just another event, `"types": ["rollback"]` gives you a
-feed of chain rollbacks - something a plain block notifier cannot do.
+The filter fields (`types`, `addresses`, `policies`, `assets`) are all optional -
+list several values to match **any** of them, combine fields to require **all** of
+them, and omit a field to not filter on it (so `{"url": ...}` alone receives
+everything). A down endpoint is skipped, never blocking the indexer.
+
+Each event is POSTed as JSON. A `transaction` event, and the `rollback` event that
+makes this more than a plain block notifier:
+
+```json
+{ "type": "transaction", "tx_hash": "a0b1...", "block_no": 42,
+  "addresses": ["00b0b0..."], "policies": ["1b3c..."], "assets": ["1b3c....436861"],
+  "lovelace": 99500000, "output_count": 2, "mint_count": 1 }
+```
+
+```json
+{ "type": "rollback", "removed": ["c4e1...", "7b2c..."], "count": 2 }
+```
+
+Because a reorg is just another event, `"types": ["rollback"]` gives you a live feed
+of chain rollbacks - the thing a naive notifier misses.
 
 ---
 
