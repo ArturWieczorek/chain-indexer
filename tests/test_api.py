@@ -347,6 +347,17 @@ def test_health_reports_the_tip(client: TestClient) -> None:
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["tip_height"] == 2
+    assert body["network_magic"] is None  # no network wired into this client
+
+
+def test_health_and_network_report_the_network_magic() -> None:
+    store = SqliteStore()
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=()))
+    net = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
+    net = NetworkParams(net.system_start, net.slot_length, net.epoch_length, network_magic=42)
+    api = TestClient(create_app(store, net))
+    assert api.get("/health").json()["network_magic"] == 42
+    assert api.get("/network").json()["network_magic"] == 42
 
 
 def test_blocks_latest_and_by_hash(client: TestClient) -> None:

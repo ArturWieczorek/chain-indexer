@@ -389,7 +389,13 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, Any]:
         tip = store.tip()
-        return {"status": "ok", "tip_height": tip.block_no if tip is not None else None}
+        return {
+            "status": "ok",
+            "tip_height": tip.block_no if tip is not None else None,
+            # Which chain this indexer is following, so a client can confirm it is
+            # pointed at the right network (42 local, 1 preprod, 2 preview, ...).
+            "network_magic": network.network_magic if network is not None else None,
+        }
 
     @app.get("/blocks/latest")
     def blocks_latest() -> dict[str, Any]:
@@ -776,6 +782,7 @@ def create_app(
         tip = store.tip()
         state: dict[str, Any] = {
             "available": True,
+            "network_magic": network.network_magic,
             "system_start": network.system_start,
             "slot_length": network.slot_length,
             "epoch_length": network.epoch_length,

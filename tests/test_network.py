@@ -17,6 +17,7 @@ def test_from_genesis_reads_the_params() -> None:
     assert p.slot_length == 0.2
     assert p.epoch_length == 1000
     assert p.active_slot_coeff == 0.1
+    assert p.network_magic == 42
 
 
 def test_expected_blocks() -> None:

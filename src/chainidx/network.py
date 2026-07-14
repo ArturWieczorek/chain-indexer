@@ -48,6 +48,7 @@ class NetworkParams:
     slot_length: float  # seconds per slot
     epoch_length: int  # slots per epoch
     active_slot_coeff: float = 0.05  # fraction of slots that make a block (f)
+    network_magic: int = 0  # which network this genesis is for (42 local, 1 preprod, ...)
 
     @classmethod
     def from_genesis(cls, shelley_genesis_path: str) -> NetworkParams:
@@ -58,6 +59,7 @@ class NetworkParams:
             slot_length=float(data["slotLength"]),
             epoch_length=int(data["epochLength"]),
             active_slot_coeff=float(data.get("activeSlotsCoeff", 0.05)),
+            network_magic=int(data.get("networkMagic", 0)),
         )
 
     def expected_blocks(self, stake_fraction: float) -> float:
