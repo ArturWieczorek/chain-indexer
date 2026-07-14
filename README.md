@@ -385,6 +385,31 @@ always wins over the file - handy for a one-off override without editing the con
 
 ---
 
+## Webhooks: push events out
+
+The indexer can POST events to your own HTTP endpoints as they happen - the same
+idea as [adder](https://github.com/blinklabs-io/adder). Add a `webhooks` list to
+`config.json`, one entry per endpoint, with an optional filter:
+
+```json
+{
+  "webhooks": [
+    { "url": "https://example.com/hook",   "addresses": ["addr_test1..."] },
+    { "url": "https://example.com/reorgs",  "types": ["rollback"] },
+    { "url": "https://example.com/mypolicy", "policies": ["<policyid>"] }
+  ]
+}
+```
+
+Each event is POSTed as JSON. The filter fields (`types`, `addresses`, `policies`,
+`assets`) are all optional - list several values to match **any** of them, combine
+fields to require **all** of them, and omit a field to not filter on it (so `{"url":
+...}` alone receives everything). A down endpoint is skipped, never blocking the
+indexer. Because a reorg is just another event, `"types": ["rollback"]` gives you a
+feed of chain rollbacks - something a plain block notifier cannot do.
+
+---
+
 ## Using the command line
 
 Besides the all-in-one `python -m chainidx.live`, there is a `chainidx` CLI for

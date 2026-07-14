@@ -17,6 +17,7 @@ import json
 import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 # The optional indexers that can be switched on and off. The core output/input
 # indexers are always on (balances depend on them), so they are not listed here.
@@ -38,6 +39,7 @@ class Config:
     ipfs_gateway: str = ""
     stake_history: bool = False
     features: frozenset[str] = field(default_factory=lambda: frozenset(FEATURES))
+    webhooks: tuple[dict[str, Any], ...] = ()  # adder-style event sinks (chapter 69)
 
 
 def from_dict(data: dict[str, object]) -> Config:
@@ -50,6 +52,10 @@ def from_dict(data: dict[str, object]) -> Config:
     if not isinstance(feats, dict):
         feats = {}
     enabled = frozenset(name for name in FEATURES if feats.get(name, True))
+    raw_hooks = data.get("webhooks")
+    hooks = (
+        tuple(h for h in raw_hooks if isinstance(h, dict)) if isinstance(raw_hooks, list) else ()
+    )
     return Config(
         socket_path=str(data.get("socket_path", "")),
         network_magic=int(str(data.get("network_magic", 42))),
@@ -62,6 +68,7 @@ def from_dict(data: dict[str, object]) -> Config:
         ipfs_gateway=str(data.get("ipfs_gateway", "")),
         stake_history=bool(data.get("stake_history", False)),
         features=enabled,
+        webhooks=hooks,
     )
 
 

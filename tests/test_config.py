@@ -90,6 +90,14 @@ def test_postgres_dsn_from_file_and_env() -> None:
     assert cfg.postgres_dsn == "dbname=x"
 
 
+def test_webhooks_parsed_from_config() -> None:
+    cfg = config.from_dict({"webhooks": [{"url": "h", "types": ["rollback"]}, "bad"]})
+    assert len(cfg.webhooks) == 1  # the non-dict entry is dropped
+    assert cfg.webhooks[0]["url"] == "h"
+    assert config.from_dict({}).webhooks == ()
+    assert config.from_dict({"webhooks": "nope"}).webhooks == ()
+
+
 def test_indexers_for_selects_optional_features() -> None:
     names = {type(i).__name__ for i in indexers_for(frozenset({"mints"}))}
     assert {"OutputIndexer", "InputIndexer", "MintIndexer"} <= names  # core + mints
