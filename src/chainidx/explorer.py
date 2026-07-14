@@ -13,21 +13,27 @@ serves it over a real database.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from chainidx.api import create_app
+from chainidx.model import MempoolStatus
 from chainidx.network import NetworkParams
 from chainidx.store import Store
 
 _INDEX_HTML = (Path(__file__).parent / "web" / "index.html").read_text()
 
 
-def create_explorer_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
+def create_explorer_app(
+    store: Store,
+    network: NetworkParams | None = None,
+    mempool_source: Callable[[], MempoolStatus] | None = None,
+) -> FastAPI:
     """The API app plus the explorer page served at ``/``."""
-    app = create_app(store, network)
+    app = create_app(store, network, mempool_source)
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

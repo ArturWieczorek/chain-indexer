@@ -16,6 +16,7 @@ event bus, the block-to-events mapping, and the ``/live`` route are all tested.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -23,15 +24,21 @@ from fastapi.responses import HTMLResponse
 
 from chainidx.event import EventBus
 from chainidx.explorer import create_explorer_app
+from chainidx.model import MempoolStatus
 from chainidx.network import NetworkParams
 from chainidx.store import Store
 
 _LIVE_HTML = (Path(__file__).parent / "web" / "live.html").read_text()
 
 
-def create_live_app(store: Store, bus: EventBus, network: NetworkParams | None = None) -> FastAPI:
+def create_live_app(
+    store: Store,
+    bus: EventBus,
+    network: NetworkParams | None = None,
+    mempool_source: Callable[[], MempoolStatus] | None = None,
+) -> FastAPI:
     """The explorer app plus a ``/live`` page and a ``/stream`` WebSocket."""
-    app = create_explorer_app(store, network)
+    app = create_explorer_app(store, network, mempool_source)
 
     @app.get("/live", response_class=HTMLResponse)
     def live_page() -> str:
@@ -81,6 +88,7 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
 
     from chainidx.api import load_network
     from chainidx.follow import Follower
+    from chainidx.mempoolclient import MempoolClient
     from chainidx.node import NodeSource
     from chainidx.store import SqliteStore
 
@@ -88,7 +96,8 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     bus = EventBus()
     source = NodeSource(socket_path, magic)
     follower = Follower(source, store, bus=bus)
-    app = create_live_app(store, bus, load_network())
+    mempool_client = MempoolClient(socket_path, magic)
+    app = create_live_app(store, bus, load_network(), mempool_client.status_sync)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
     print("live view on http://127.0.0.1:8000/live")
     await asyncio.gather(server.serve(), follower.run(), _snapshot_loop(store, socket_path, magic))

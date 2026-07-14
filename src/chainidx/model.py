@@ -42,6 +42,22 @@ class AssetDetail:
 
 
 @dataclass(frozen=True)
+class MempoolStatus:
+    """A snapshot of the node's mempool, from local-tx-monitor (chapter 43).
+
+    ``slot`` is the slot the snapshot was taken at; ``capacity`` and ``size_bytes``
+    are the mempool's byte capacity and current fill; ``tx_ids`` are the pending
+    transactions (``tx_count`` of them).
+    """
+
+    slot: int
+    capacity: int
+    size_bytes: int
+    tx_count: int
+    tx_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class EpochStats:
     """Per-epoch totals for the analytics time-series charts (chapter 42).
 

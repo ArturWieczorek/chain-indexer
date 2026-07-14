@@ -117,6 +117,22 @@ def _credential_hash(credential: list[Any]) -> str:
     return str(credential[1].hex())
 
 
+def tx_id_of_bytes(raw: bytes) -> str:
+    """The transaction id of a raw transaction (``[body, witnesses, ...]``).
+
+    A transaction id is the blake2b-256 of the **body's exact original bytes**, so
+    we read the array header and measure the first element's byte span rather than
+    re-encoding it (chapter 10's rule). Used for mempool transactions, which arrive
+    as raw CBOR (chapter 43).
+    """
+    reader = io.BytesIO(raw)
+    decoder = cbor2.CBORDecoder(reader)
+    _read_array_header(reader)  # the transaction array [body, witnesses, ...]
+    start = reader.tell()
+    decoder.decode()  # the body
+    return _blake2b_256(raw[start : reader.tell()])
+
+
 def decode_value(value: int | list[Any]) -> tuple[int, tuple[Asset, ...]]:
     """Decode an output value: either plain lovelace, or ``[lovelace, assets]``.
 

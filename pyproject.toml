@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chainidx"
-version = "1.24.0"
+version = "1.25.0"
 description = "A mini Cardano chain indexer with reorg handling, a query API, and a block explorer - a test-driven course"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -99,7 +99,12 @@ markers = [
 # left out of the unit-test coverage measurement. The pure parsing logic lives
 # in separate modules (e.g. ogmios_parse.py) that ARE covered. This list grows
 # as those chapters land (08, 11, 12).
-omit = ["src/chainidx/ogmios.py", "src/chainidx/node.py", "src/chainidx/localstate.py"]
+omit = [
+    "src/chainidx/ogmios.py",
+    "src/chainidx/node.py",
+    "src/chainidx/localstate.py",
+    "src/chainidx/mempoolclient.py",
+]
 
 [tool.coverage.report]
 show_missing = true

@@ -13,6 +13,7 @@ network. ``create_default_app`` (used by ``make api``) opens a real database.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -30,6 +31,7 @@ from chainidx.model import (
     GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
+    MempoolStatus,
     PoolSummary,
     ResolvedInput,
     TxDetail,
@@ -234,6 +236,17 @@ def _withdrawal(record: WithdrawalRecord) -> dict[str, Any]:
     }
 
 
+def _mempool(status: MempoolStatus) -> dict[str, Any]:
+    return {
+        "available": True,
+        "slot": status.slot,
+        "capacity": status.capacity,
+        "size_bytes": status.size_bytes,
+        "tx_count": status.tx_count,
+        "tx_ids": list(status.tx_ids),
+    }
+
+
 def _drep(summary: DRepSummary) -> dict[str, Any]:
     return {
         "drep_id": summary.drep_id,
@@ -283,8 +296,20 @@ def _epoch(summary: EpochSummary, network: NetworkParams | None) -> dict[str, An
     return out
 
 
-def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
+def create_app(
+    store: Store,
+    network: NetworkParams | None = None,
+    mempool_source: Callable[[], MempoolStatus] | None = None,
+) -> FastAPI:
     app = FastAPI(title="chain-indexer", description="A mini Cardano chain indexer API")
+
+    @app.get("/mempool")
+    def mempool() -> dict[str, Any]:
+        # The mempool is live, not indexed, so it is queried on demand. Without a
+        # node connection wired in (for example in unit tests) it is unavailable.
+        if mempool_source is None:
+            return {"available": False}
+        return _mempool(mempool_source())
 
     @app.get("/health")
     def health() -> dict[str, Any]:

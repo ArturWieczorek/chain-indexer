@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.25.0] - The mempool (local-tx-monitor)
+
+### Added
+
+- The fifth node-to-client mini-protocol, local-tx-monitor (id 9):
+  `cbor_blocks.tx_id_of_bytes`, the pure `txmonitor` codec, `MempoolStatus`, and
+  the integration `MempoolClient`.
+- `create_app` gains an optional `mempool_source`; `/mempool` serves the live
+  mempool (capacity, fill, pending transaction ids) on demand, and the explorer
+  gains a Mempool section. The live runner wires in the real client.
+
 ## [1.24.0] - Analytics time series
 
 ### Added

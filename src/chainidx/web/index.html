@@ -116,6 +116,7 @@
       <nav>
         <a href="#/">Blocks</a>
         <a href="#/transactions">Transactions</a>
+        <a href="#/mempool">Mempool</a>
         <a href="#/epochs">Epochs</a>
         <a href="#/pools">Pools</a>
         <a href="#/governance">Governance</a>
@@ -223,6 +224,27 @@
       async function transactionsPage() {
         const txs = await api("/transactions?limit=50");
         app.innerHTML = `<h2>Transactions</h2>${txTable(txs)}`;
+      }
+
+      async function mempoolPage() {
+        const m = await api("/mempool");
+        if (!m.available) {
+          app.innerHTML =
+            `<h2>Mempool</h2><div class="panel muted">` +
+            `The mempool is read live from the node and is not available here ` +
+            `(the explorer is running without a node connection).</div>`;
+          return;
+        }
+        const pct = m.capacity ? ((m.size_bytes / m.capacity) * 100).toFixed(2) : "0";
+        const rows = m.tx_ids.length
+          ? m.tx_ids.map((h) => `<tr><td class="wrap">${link("tx", h, h)}</td></tr>`).join("")
+          : `<tr><td class="muted">no pending transactions</td></tr>`;
+        app.innerHTML =
+          `<h2>Mempool</h2><div class="panel"><div class="kv">` +
+          `<div>pending transactions</div><div>${m.tx_count}</div>` +
+          `<div>size</div><div>${m.size_bytes} / ${m.capacity} bytes (${pct}%)</div>` +
+          `<div>snapshot slot</div><div>${m.slot}</div></div></div>` +
+          `<h2>Pending transactions</h2><div class="panel"><table>${rows}</table></div>`;
       }
 
       async function epochsPage() {
@@ -870,6 +892,7 @@
           else if (parts[0] === "slot" && parts[1]) await bySlot(parts[1]);
           else if (parts[0] === "hash" && parts[1]) await byHashOrTx(parts[1]);
           else if (parts[0] === "transactions") await transactionsPage();
+          else if (parts[0] === "mempool") await mempoolPage();
           else if (parts[0] === "tx" && parts[1]) await tx(parts[1], parts[2]);
           else if (parts[0] === "address" && parts[1]) await address(parts[1]);
           else await home();

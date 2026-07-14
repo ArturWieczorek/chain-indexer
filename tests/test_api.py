@@ -368,6 +368,23 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_mempool_endpoint() -> None:
+    from chainidx.model import MempoolStatus
+
+    store = SqliteStore()
+    # No mempool source wired in -> unavailable.
+    assert TestClient(create_app(store)).get("/mempool").json() == {"available": False}
+
+    # With a source (in production the local-tx-monitor client), it reports status.
+    status = MempoolStatus(slot=100, capacity=178176, size_bytes=232, tx_count=1, tx_ids=("abc",))
+    api = TestClient(create_app(store, None, lambda: status))
+    body = api.get("/mempool").json()
+    assert body["available"] is True
+    assert body["tx_count"] == 1
+    assert body["tx_ids"] == ["abc"]
+    assert body["capacity"] == 178176
+
+
 def test_analytics_timeseries() -> None:
     store = SqliteStore()
     # No network configured -> no time-series.
