@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.22.0] - Top addresses and staking accounts
+
+### Added
+
+- `AddressBalance` / `StakeAccountBalance` models; `store.top_addresses` /
+  `store.top_stake_accounts`, ranking unspent outputs by address and by stake
+  credential.
+- `/top/addresses` and `/top/accounts`; Top-addresses and Top-staking-accounts
+  tables on the Analytics page, each entry linking to its detail page.
+
 ## [1.21.0] - Reward withdrawals
 
 ### Added

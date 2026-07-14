@@ -32,6 +32,7 @@ from typing import Any, Protocol
 from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
     AccountState,
+    AddressBalance,
     Asset,
     AssetDetail,
     Block,
@@ -47,6 +48,7 @@ from chainidx.model import (
     PolicyDetail,
     PoolSummary,
     ResolvedInput,
+    StakeAccountBalance,
     Tip,
     Tx,
     TxActivity,
@@ -209,6 +211,14 @@ class Store(Protocol):
 
     def controlled_stake(self, stake_credential: str) -> int:
         """Return the unspent lovelace in outputs whose stake part is this."""
+        ...
+
+    def top_addresses(self, limit: int = 20) -> list[AddressBalance]:
+        """Return the addresses holding the most unspent lovelace, richest first."""
+        ...
+
+    def top_stake_accounts(self, limit: int = 20) -> list[StakeAccountBalance]:
+        """Return the stake credentials controlling the most ada, largest first."""
         ...
 
     def dreps(self) -> tuple[str, ...]:
@@ -1191,6 +1201,26 @@ class SqliteStore:
             (stake_credential,),
         ).fetchone()
         return int(row["total"])
+
+    def top_addresses(self, limit: int = 20) -> list[AddressBalance]:
+        rows = self._conn.execute(
+            "SELECT address, SUM(lovelace) AS bal FROM tx_out "
+            "WHERE consumed_by_tx_id IS NULL GROUP BY address ORDER BY bal DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [AddressBalance(address=r["address"], balance=int(r["bal"])) for r in rows]
+
+    def top_stake_accounts(self, limit: int = 20) -> list[StakeAccountBalance]:
+        rows = self._conn.execute(
+            "SELECT stake_cred, SUM(lovelace) AS bal FROM tx_out "
+            "WHERE consumed_by_tx_id IS NULL AND stake_cred IS NOT NULL "
+            "GROUP BY stake_cred ORDER BY bal DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            StakeAccountBalance(stake_credential=r["stake_cred"], controlled_stake=int(r["bal"]))
+            for r in rows
+        ]
 
     def dreps(self) -> tuple[str, ...]:
         rows = self._conn.execute(

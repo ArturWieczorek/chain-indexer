@@ -427,6 +427,23 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
     def withdrawals() -> list[dict[str, Any]]:
         return [_withdrawal(w) for w in store.withdrawals()]
 
+    @app.get("/top/addresses")
+    def top_addresses(limit: int = 20) -> list[dict[str, Any]]:
+        return [
+            {"address": _address_display(a.address), "balance": a.balance}
+            for a in store.top_addresses(limit)
+        ]
+
+    @app.get("/top/accounts")
+    def top_accounts(limit: int = 20) -> list[dict[str, Any]]:
+        return [
+            {
+                "stake_address": _stake_display(a.stake_credential),
+                "controlled_stake": a.controlled_stake,
+            }
+            for a in store.top_stake_accounts(limit)
+        ]
+
     @app.get("/certificates")
     def certificates(cert_type: str | None = None) -> list[dict[str, Any]]:
         return [_certificate(c) for c in store.certificates(cert_type)]

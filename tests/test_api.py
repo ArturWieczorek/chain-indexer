@@ -368,6 +368,35 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_top_addresses_and_accounts() -> None:
+    store = SqliteStore()
+    # addr1 holds a base address (with a stake credential) worth more than addr2.
+    base = "00" + "aa" * 28 + "bb" * 28  # header + payment + stake credential
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx("t1", outputs=(TxOut(base, 9_000_000), TxOut("addr2", 4_000_000))),
+                Tx("t2", outputs=(TxOut("addr2", 1_000_000),)),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    addrs = api.get("/top/addresses").json()
+    # The base address is richest; balances are summed per address.
+    assert addrs[0]["balance"] == 9_000_000
+    assert {a["balance"] for a in addrs} == {9_000_000, 5_000_000}
+
+    accts = api.get("/top/accounts").json()
+    # Only the base address carries a stake credential, so one account, 9 ADA.
+    assert len(accts) == 1
+    assert accts[0]["controlled_stake"] == 9_000_000
+    assert accts[0]["stake_address"].startswith("stake_test1")
+
+
 def test_withdrawals() -> None:
     assert TestClient(create_app(SqliteStore())).get("/withdrawals").json() == []
 

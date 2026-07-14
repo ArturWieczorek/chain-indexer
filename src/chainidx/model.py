@@ -42,6 +42,22 @@ class AssetDetail:
 
 
 @dataclass(frozen=True)
+class AddressBalance:
+    """An address and its unspent balance, for the top-addresses ranking (ch40)."""
+
+    address: str
+    balance: int
+
+
+@dataclass(frozen=True)
+class StakeAccountBalance:
+    """A stake credential and the ada it controls, for the top-accounts ranking (ch40)."""
+
+    stake_credential: str
+    controlled_stake: int
+
+
+@dataclass(frozen=True)
 class PolicyDetail:
     """The native assets minted under one policy id (chapter 36).
 

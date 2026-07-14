@@ -292,7 +292,12 @@
       }
 
       async function analyticsPage() {
-        const [s, epochs] = await Promise.all([api("/analytics/summary"), api("/epochs")]);
+        const [s, epochs, topAddr, topAcct] = await Promise.all([
+          api("/analytics/summary"),
+          api("/epochs"),
+          api("/top/addresses?limit=10"),
+          api("/top/accounts?limit=10"),
+        ]);
         const tiles = [
           ["blocks", s.total_blocks],
           ["transactions", s.total_transactions],
@@ -320,9 +325,31 @@
         const chart = data.length
           ? `<svg viewBox="0 0 ${width} ${H}" style="width:100%;height:auto" class="chart">${bars}</svg>`
           : `<span class="muted">no epoch data</span>`;
+        const addrRows = topAddr.length
+          ? topAddr
+              .map(
+                (a) =>
+                  `<tr><td class="wrap">${link("address", a.address, short(a.address))}</td>` +
+                  `<td class="lovelace">${ada(a.balance)}</td></tr>`
+              )
+              .join("")
+          : `<tr><td colspan="2" class="muted">no addresses</td></tr>`;
+        const acctRows = topAcct.length
+          ? topAcct
+              .map(
+                (a) =>
+                  `<tr><td class="wrap">${link("account", a.stake_address, short(a.stake_address))}</td>` +
+                  `<td class="lovelace">${ada(a.controlled_stake)}</td></tr>`
+              )
+              .join("")
+          : `<tr><td colspan="2" class="muted">no staking accounts</td></tr>`;
         app.innerHTML =
           `<h2>Network</h2><div class="tiles">${tiles}</div>` +
-          `<h2>Blocks per epoch</h2><div class="panel" style="overflow-x:auto">${chart}</div>`;
+          `<h2>Blocks per epoch</h2><div class="panel" style="overflow-x:auto">${chart}</div>` +
+          `<h2>Top addresses</h2><div class="panel"><table>` +
+          `<tr><th>Address</th><th>Balance</th></tr>${addrRows}</table></div>` +
+          `<h2>Top staking accounts</h2><div class="panel"><table>` +
+          `<tr><th>Stake account</th><th>Controlled stake</th></tr>${acctRows}</table></div>`;
       }
 
       async function accountPage(id) {
