@@ -43,11 +43,11 @@ from chainidx.model import (
     GovVoteRecord,
     Point,
     PoolSummary,
+    ResolvedInput,
     Tip,
     Tx,
     TxActivity,
     TxDetail,
-    TxIn,
     TxOut,
 )
 
@@ -117,6 +117,10 @@ class Store(Protocol):
 
     def tx_activity(self, tx_hash: str) -> TxActivity:
         """Return a transaction's certificates and governance, as descriptions."""
+        ...
+
+    def certificates_for_tx(self, tx_hash: str) -> list[CertificateRecord]:
+        """Return the certificates carried by a transaction, as typed records."""
         ...
 
     def assets(self) -> tuple[Asset, ...]:
@@ -454,6 +458,15 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_certificate_type ON certificate (cert_type)",
         ),
     ),
+    (
+        10,
+        (
+            # A transaction's fee and metadata, for the detail page (chapter 35).
+            # Both default for rows written before this migration.
+            "ALTER TABLE tx ADD COLUMN fee INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tx ADD COLUMN metadata TEXT NOT NULL DEFAULT ''",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -527,8 +540,9 @@ class SqliteStore:
             assert block_id is not None
             for index, tx in enumerate(block.txs):
                 cur = self._conn.execute(
-                    "INSERT INTO tx (hash, block_id, block_index) VALUES (?, ?, ?)",
-                    (tx.tx_id, block_id, index),
+                    "INSERT INTO tx (hash, block_id, block_index, fee, metadata) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (tx.tx_id, block_id, index, tx.fee, tx.metadata),
                 )
                 tx_db_id = cur.lastrowid
                 assert tx_db_id is not None
@@ -718,28 +732,82 @@ class SqliteStore:
             end_slot=row["end_slot"],
         )
 
+    def _assets_of_output(self, tx_out_id: int) -> tuple[Asset, ...]:
+        rows = self._conn.execute(
+            "SELECT policy_id, asset_name, quantity FROM ma_tx_out WHERE tx_out_id = ?",
+            (tx_out_id,),
+        ).fetchall()
+        return tuple(
+            Asset(policy_id=r["policy_id"], asset_name=r["asset_name"], quantity=r["quantity"])
+            for r in rows
+        )
+
     def get_tx(self, tx_hash: str) -> TxDetail | None:
         row = self._conn.execute(
-            "SELECT t.id AS id, b.hash AS block_hash FROM tx t "
-            "JOIN block b ON b.id = t.block_id WHERE t.hash = ?",
+            "SELECT t.id AS id, t.fee AS fee, t.metadata AS metadata, b.hash AS block_hash "
+            "FROM tx t JOIN block b ON b.id = t.block_id WHERE t.hash = ?",
             (tx_hash,),
         ).fetchone()
         if row is None:
             return None
         out_rows = self._conn.execute(
-            "SELECT address, lovelace FROM tx_out WHERE tx_id = ? ORDER BY index_no",
+            "SELECT id, address, lovelace FROM tx_out WHERE tx_id = ? ORDER BY index_no",
             (row["id"],),
         ).fetchall()
+        outputs = tuple(
+            TxOut(
+                address=r["address"], lovelace=r["lovelace"], assets=self._assets_of_output(r["id"])
+            )
+            for r in out_rows
+        )
         in_rows = self._conn.execute(
             "SELECT tx_out_hash, tx_out_index FROM tx_in WHERE tx_in_id = ? ORDER BY id",
             (row["id"],),
         ).fetchall()
+        inputs = tuple(self._resolve_input(r["tx_out_hash"], r["tx_out_index"]) for r in in_rows)
         return TxDetail(
             tx_id=tx_hash,
             block_hash=row["block_hash"],
-            inputs=tuple(TxIn(tx_id=r["tx_out_hash"], index=r["tx_out_index"]) for r in in_rows),
-            outputs=tuple(TxOut(address=r["address"], lovelace=r["lovelace"]) for r in out_rows),
+            inputs=inputs,
+            outputs=outputs,
+            fee=row["fee"],
+            metadata=row["metadata"],
         )
+
+    def _resolve_input(self, tx_out_hash: str, index: int) -> ResolvedInput:
+        src = self._conn.execute(
+            "SELECT o.id AS id, o.address AS address, o.lovelace AS lovelace FROM tx_out o "
+            "JOIN tx t ON t.id = o.tx_id WHERE t.hash = ? AND o.index_no = ?",
+            (tx_out_hash, index),
+        ).fetchone()
+        if src is None:
+            # The consumed output was never indexed (a genesis or faucet UTxO, or
+            # one from before our sync start). We know the reference but not the
+            # value, and there is no transaction page to link to.
+            return ResolvedInput(tx_id=tx_out_hash, index=index, address="", lovelace=0)
+        return ResolvedInput(
+            tx_id=tx_out_hash,
+            index=index,
+            address=src["address"],
+            lovelace=src["lovelace"],
+            assets=self._assets_of_output(src["id"]),
+        )
+
+    def certificates_for_tx(self, tx_hash: str) -> list[CertificateRecord]:
+        rows = self._conn.execute(
+            "SELECT c.cert_type AS cert_type, c.subject AS subject, c.detail AS detail "
+            "FROM certificate c JOIN tx t ON t.id = c.tx_id WHERE t.hash = ? ORDER BY c.id",
+            (tx_hash,),
+        ).fetchall()
+        return [
+            CertificateRecord(
+                cert_type=r["cert_type"],
+                subject=r["subject"],
+                detail=r["detail"],
+                tx_hash=tx_hash,
+            )
+            for r in rows
+        ]
 
     def tx_activity(self, tx_hash: str) -> TxActivity:
         row = self._conn.execute("SELECT id FROM tx WHERE hash = ?", (tx_hash,)).fetchone()

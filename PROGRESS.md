@@ -38,3 +38,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch32 - Governance from CBOR (v1.14.0)
 - [x] ch33 - Clickable governance and epoch blocks (v1.15.0)
 - [x] ch34 - Certificates browser (v1.16.0)
+- [x] ch35 - Transaction detail tabs (v1.17.0)

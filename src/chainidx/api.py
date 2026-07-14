@@ -12,6 +12,7 @@ network. ``create_default_app`` (used by ``make api``) opens a real database.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -27,6 +28,7 @@ from chainidx.model import (
     GovActionSummary,
     GovVoteRecord,
     PoolSummary,
+    ResolvedInput,
     TxDetail,
     TxOut,
 )
@@ -115,11 +117,26 @@ def _block(block: Block, network: NetworkParams | None = None) -> dict[str, Any]
     return out
 
 
+def _resolved_input(i: ResolvedInput) -> dict[str, Any]:
+    return {
+        "tx_id": i.tx_id,
+        "index": i.index,
+        "address": _address_display(i.address) if i.address else "",
+        "lovelace": i.lovelace,
+        "assets": [_asset(a) for a in i.assets],
+        # False when the consumed output was never indexed (a genesis/faucet
+        # UTxO): the explorer then shows the reference without a dead link.
+        "resolved": i.address != "",
+    }
+
+
 def _tx(detail: TxDetail) -> dict[str, Any]:
     return {
         "tx_id": detail.tx_id,
         "block_hash": detail.block_hash,
-        "inputs": [{"tx_id": i.tx_id, "index": i.index} for i in detail.inputs],
+        "fee": detail.fee,
+        "metadata": json.loads(detail.metadata) if detail.metadata else None,
+        "inputs": [_resolved_input(i) for i in detail.inputs],
         "outputs": [_output(o) for o in detail.outputs],
     }
 
@@ -248,7 +265,7 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="transaction not found")
         out = _tx(detail)
         activity = store.tx_activity(tx_hash)
-        out["certificates"] = list(activity.certificates)
+        out["certificates"] = [_certificate(c) for c in store.certificates_for_tx(tx_hash)]
         out["proposals"] = list(activity.proposals)
         out["votes"] = list(activity.votes)
         return out

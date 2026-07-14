@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
+from collections.abc import Mapping
 from typing import Any
 
 import cbor2
@@ -61,6 +63,7 @@ from chainidx.model import (
 # Conway transaction-body map keys (a subset - the ones we index).
 _INPUTS = 0
 _OUTPUTS = 1
+_FEE = 2
 _CERTIFICATES = 4
 _VOTING_PROCEDURES = 19
 _PROPOSAL_PROCEDURES = 20
@@ -239,7 +242,48 @@ def _decode_votes(body: dict[int, Any]) -> tuple[GovVote, ...]:
     return tuple(out)
 
 
-def _decode_tx(tx_id: str, body: dict[int, Any]) -> Tx:
+def _metadatum_to_json(value: Any) -> Any:
+    """Turn a decoded metadatum into a JSON-friendly value.
+
+    Transaction metadata is CBOR of ints, text, byte strings, lists, and maps. We
+    keep ints and text as they are, render byte strings as hex, and recurse into
+    lists and maps (map keys are stringified, since JSON keys must be strings).
+    """
+    if isinstance(value, bytes):
+        return value.hex()
+    if isinstance(value, Mapping):
+        return {str(_metadatum_to_json(k)): _metadatum_to_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_metadatum_to_json(v) for v in value]
+    return value
+
+
+def _extract_metadata(aux: Any) -> Mapping[Any, Any]:
+    """Pull the label-keyed metadata map out of a transaction's auxiliary data.
+
+    Auxiliary data has changed shape across eras: a bare metadata map (Shelley), a
+    ``[metadata, scripts]`` pair (Shelley-MA), or a tag-259 map whose key 0 is the
+    metadata (Alonzo onward). We reach the metadata map in each case.
+    """
+    if isinstance(aux, cbor2.CBORTag):
+        inner = aux.value
+        return inner.get(0, {}) if isinstance(inner, Mapping) else {}
+    if isinstance(aux, Mapping):
+        return aux
+    if isinstance(aux, list):
+        return aux[0] if aux and isinstance(aux[0], Mapping) else {}
+    return {}
+
+
+def _metadata_json(aux: Any) -> str:
+    """A transaction's metadata as a JSON string, or ``""`` when there is none."""
+    meta = _extract_metadata(aux)
+    if not meta:
+        return ""
+    return json.dumps({str(label): _metadatum_to_json(v) for label, v in meta.items()})
+
+
+def _decode_tx(tx_id: str, body: dict[int, Any], metadata: str = "") -> Tx:
     inputs = tuple(TxIn(tx_id=i[0].hex(), index=i[1]) for i in body.get(_INPUTS, ()))
     outputs = tuple(_decode_output(o) for o in body.get(_OUTPUTS, ()))
     certificates = _decode_certificates(body.get(_CERTIFICATES))
@@ -250,6 +294,8 @@ def _decode_tx(tx_id: str, body: dict[int, Any]) -> Tx:
         certificates=certificates,
         proposals=_decode_proposals(body, tx_id),
         votes=_decode_votes(body),
+        fee=body.get(_FEE, 0),
+        metadata=metadata,
     )
 
 
@@ -266,7 +312,7 @@ def decode_block(block: cbor2.CBORTag) -> Block:
 
     _read_array_header(reader)  # outer [era, block]
     decoder.decode()  # the era tag (an int); we do not need it
-    _read_array_header(reader)  # the block array [header, tx_bodies, ...]
+    block_elements = _read_array_header(reader)  # [header, tx_bodies, witnesses, aux, ...]
 
     header_start = reader.tell()
     header = decoder.decode()
@@ -281,12 +327,29 @@ def decode_block(block: cbor2.CBORTag) -> Block:
     # minted the block (chapter 22). Pool ids are 28-byte (blake2b-224) hashes.
     issuer = hashlib.blake2b(header_body[3], digest_size=28).hexdigest()
 
-    txs: list[Tx] = []
+    bodies: list[tuple[str, dict[int, Any]]] = []
     for _ in range(_read_array_header(reader)):
         body_start = reader.tell()
         body = decoder.decode()
         tx_id = _blake2b_256(inner[body_start : reader.tell()])
-        txs.append(_decode_tx(tx_id, body))
+        bodies.append((tx_id, body))
+
+    # After the bodies come the witness sets (element 2, discarded) and the
+    # auxiliary-data map (element 3): ``{tx_index -> auxiliary_data}``, carrying
+    # each transaction's metadata (chapter 35). We read them in order.
+    metadata_by_index: dict[int, str] = {}
+    if block_elements > 2:
+        decoder.decode()  # witness sets - we do not index witnesses
+    if block_elements > 3:
+        aux_map = decoder.decode()
+        if isinstance(aux_map, dict):
+            for tx_index, aux in aux_map.items():
+                metadata_by_index[tx_index] = _metadata_json(aux)
+
+    txs = [
+        _decode_tx(tx_id, body, metadata_by_index.get(i, ""))
+        for i, (tx_id, body) in enumerate(bodies)
+    ]
 
     return Block(
         block_no=block_no,

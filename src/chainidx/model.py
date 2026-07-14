@@ -239,6 +239,8 @@ class Tx:
     certificates: tuple[Certificate, ...] = ()
     proposals: tuple[GovActionProposal, ...] = ()
     votes: tuple[GovVote, ...] = ()
+    fee: int = 0
+    metadata: str = ""  # a JSON string of the transaction's metadata, or ""
 
 
 @dataclass(frozen=True)
@@ -256,13 +258,37 @@ class Point:
 
 
 @dataclass(frozen=True)
+class ResolvedInput:
+    """An input with the value it spends filled in from the output it consumes.
+
+    An input only names an earlier output (``tx_id`` and ``index``). To show what
+    it is worth, we look that output up and copy its ``address``, ``lovelace``, and
+    ``assets`` here. If we never indexed that output (syncing from mid-chain), the
+    address is empty and the value zero.
+    """
+
+    tx_id: str
+    index: int
+    address: str
+    lovelace: int
+    assets: tuple[Asset, ...] = ()
+
+
+@dataclass(frozen=True)
 class TxDetail:
-    """A transaction as the query API reports it: its block, inputs, and outputs."""
+    """A transaction as the query API reports it (chapter 35).
+
+    Inputs are resolved to the value they spend; outputs carry their assets; and
+    the transaction's ``fee`` and any ``metadata`` (a JSON string, empty when the
+    transaction carried none) round out the picture for the detail page.
+    """
 
     tx_id: str
     block_hash: str
-    inputs: tuple[TxIn, ...]
+    inputs: tuple[ResolvedInput, ...]
     outputs: tuple[TxOut, ...]
+    fee: int = 0
+    metadata: str = ""
 
 
 @dataclass(frozen=True)

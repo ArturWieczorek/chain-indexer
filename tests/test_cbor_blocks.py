@@ -6,6 +6,7 @@ hashes, so these tests prove we decode identity correctly, not just plausibly.
 """
 
 import io
+import json
 from pathlib import Path
 from typing import cast
 
@@ -176,6 +177,40 @@ def test_decode_governance_proposals_and_votes() -> None:
     assert by_role["DRep"] == "Yes"
     assert by_role["SPO"] == "No"
     assert votes[0].gov_action_id == f"{'cc' * 32}#0"
+
+
+def test_metadata_helpers_across_eras() -> None:
+    from chainidx.cbor_blocks import _metadata_json, _metadatum_to_json
+
+    # bytes -> hex, nested list/map recurse, and map keys are stringified.
+    assert _metadatum_to_json(b"\xab\xcd") == "abcd"
+    assert _metadatum_to_json([1, b"\x01"]) == [1, "01"]
+    assert _metadatum_to_json({1: "a"}) == {"1": "a"}
+
+    # Alonzo+ tag-259 auxiliary data keeps the metadata under key 0.
+    tag = cbor2.CBORTag(259, {0: {674: {"msg": "hi"}}, 1: []})
+    assert json.loads(_metadata_json(tag)) == {"674": {"msg": "hi"}}
+    # Shelley: a bare metadata map. Shelley-MA: [metadata, scripts].
+    assert json.loads(_metadata_json({1: 2})) == {"1": 2}
+    assert json.loads(_metadata_json([{5: "x"}, []])) == {"5": "x"}
+    # Nothing to show.
+    assert _metadata_json({}) == ""
+    assert _metadata_json(None) == ""
+    assert _metadata_json([]) == ""
+    assert _metadata_json(cbor2.CBORTag(259, [])) == ""
+
+
+def test_decode_block_reads_fee_and_transaction_metadata() -> None:
+    header_body = [7, 100, None, b"\x11" * 32]
+    header = [header_body]
+    body = {0: [], 1: [], 2: 5}  # no inputs/outputs, fee 5
+    aux = cbor2.CBORTag(259, {0: {674: {"msg": "hi"}}})
+    block_array = [header, [body], [{}], {0: aux}]
+    inner = cbor2.dumps([6, block_array])
+    blk = decode_block(cbor2.CBORTag(24, inner))
+    assert blk.block_no == 7
+    assert blk.txs[0].fee == 5
+    assert json.loads(blk.txs[0].metadata) == {"674": {"msg": "hi"}}
 
 
 def test_decode_value_handles_ada_and_multi_asset() -> None:

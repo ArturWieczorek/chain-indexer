@@ -308,15 +308,52 @@ def test_blocks_list(client: TestClient) -> None:
 def test_tx_detail(client: TestClient) -> None:
     tx = client.get("/txs/tx2").json()
     assert tx["block_hash"] == "b2"
-    assert tx["inputs"] == [{"tx_id": "tx1", "index": 0}]
+    assert tx["fee"] == 0
+    assert tx["metadata"] is None
+    # The input is resolved to the value it spends (alice's output from block 1).
+    inp = tx["inputs"][0]
+    assert inp["tx_id"] == "tx1"
+    assert inp["index"] == 0
+    assert inp["resolved"] is True
+    assert inp["address"] == "alice"
+    assert inp["lovelace"] == 5_000_000
+    assert inp["assets"] == [{"policy_id": "pol", "asset_name": "TOK", "quantity": 3}]
     assert tx["outputs"][0]["address"] == "bob"
+    assert tx["outputs"][0]["assets"][0]["asset_name"] == "TOK"
     assert tx["proposals"] == ["InfoAction: gov1"]
     assert tx["votes"] == ["DRep voted Yes on gov1"]
     assert client.get("/txs/missing").status_code == 404
 
-    # tx1 carried the staking and DRep certificates.
+    # tx1 carried the staking and DRep certificates, now as structured records.
     tx1 = client.get("/txs/tx1").json()
-    assert any("pool registration" in c for c in tx1["certificates"])
+    assert any(c["cert_type"] == "Pool Registration" for c in tx1["certificates"])
+
+
+def test_tx_detail_fee_metadata_and_unresolved_input() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "txA",
+                    inputs=(TxIn("genesisUtxo", 0),),  # a source output we never indexed
+                    outputs=(TxOut("addr1", 1_000_000),),
+                    fee=170_000,
+                    metadata='{"674": {"msg": "hello"}}',
+                ),
+            ),
+        )
+    )
+    t = TestClient(create_app(store)).get("/txs/txA").json()
+    assert t["fee"] == 170_000
+    assert t["metadata"] == {"674": {"msg": "hello"}}
+    assert t["inputs"][0]["resolved"] is False
+    assert t["inputs"][0]["address"] == ""
+    assert t["inputs"][0]["lovelace"] == 0
 
 
 def test_address_balance_and_utxos(client: TestClient) -> None:

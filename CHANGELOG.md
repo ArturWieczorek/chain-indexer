@@ -3,6 +3,23 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.17.0] - Transaction detail tabs
+
+### Added
+
+- `ResolvedInput` model and `Tx.fee`/`Tx.metadata`; `TxDetail` now carries the
+  fee, metadata, resolved inputs, and asset-bearing outputs.
+- Fee (body key 2) and transaction metadata (block auxiliary data, all three era
+  shapes) decoding in `cbor_blocks`.
+- Migration 10 (`tx.fee`, `tx.metadata`); `store.get_tx` resolves inputs to the
+  value they spend and loads output assets; `store.certificates_for_tx`.
+- Tabbed transaction page (Summary / UTXOs / Metadata) with linked certificates.
+
+### Fixed
+
+- Clicking an input that referenced a never-indexed output (a genesis/faucet
+  UTxO) led to a 404; such inputs are now shown without a link.
+
 ## [1.16.0] - Certificates browser
 
 ### Added
