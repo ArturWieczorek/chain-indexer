@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.19.0] - Protocol parameters and transaction governance links
+
+### Added
+
+- Migration 11 `protocol_param`; `store.record_protocol_params` /
+  `store.protocol_params`; the live snapshot loop records them;
+  `/protocol-parameters` and a Protocol parameters page in the explorer.
+- `store.proposals_for_tx` / `store.votes_for_tx`; `GovVoteRecord.gov_action_id`.
+- The transaction page now renders proposals and votes as tables that link to
+  their governance action, instead of plain text.
+
 ## [1.18.0] - Policy pages and readable asset names
 
 ### Added

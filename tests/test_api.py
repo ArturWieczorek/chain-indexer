@@ -320,8 +320,11 @@ def test_tx_detail(client: TestClient) -> None:
     assert inp["assets"] == [{"policy_id": "pol", "asset_name": "TOK", "quantity": 3}]
     assert tx["outputs"][0]["address"] == "bob"
     assert tx["outputs"][0]["assets"][0]["asset_name"] == "TOK"
-    assert tx["proposals"] == ["InfoAction: gov1"]
-    assert tx["votes"] == ["DRep voted Yes on gov1"]
+    # Proposals and votes are structured now, each linking to its governance action.
+    assert tx["proposals"] == [{"gov_action_id": "gov1", "action_type": "InfoAction", "deposit": 0}]
+    assert tx["votes"] == [
+        {"voter_role": "DRep", "voter_id": "drep1", "vote": "Yes", "gov_action_id": "gov1"}
+    ]
     assert client.get("/txs/missing").status_code == 404
 
     # tx1 carried the staking and DRep certificates, now as structured records.
@@ -361,6 +364,17 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert alice["balance"] == 0  # spent in block 2
     bob = client.get("/addresses/bob").json()
     assert bob["balance"] == 5_000_000
+
+
+def test_protocol_parameters_endpoint() -> None:
+    store = SqliteStore()
+    api = TestClient(create_app(store))
+    assert api.get("/protocol-parameters").json() == {}
+    store.record_protocol_params({"min_fee_a": 44, "pool_deposit": 500_000_000})
+    assert api.get("/protocol-parameters").json() == {"min_fee_a": 44, "pool_deposit": 500_000_000}
+    # A later snapshot replaces the previous parameters.
+    store.record_protocol_params({"min_fee_a": 45})
+    assert api.get("/protocol-parameters").json() == {"min_fee_a": 45}
 
 
 def test_asset_name_decoding_and_policy_page() -> None:

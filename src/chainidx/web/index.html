@@ -361,10 +361,47 @@
               .join("")
           : `<tr><td colspan="3" class="muted">No DReps registered yet.</td></tr>`;
         app.innerHTML =
+          `<div class="panel" style="display:flex;gap:.4rem">` +
+          `<a class="pill" href="#/params">Protocol parameters</a></div>` +
           `<h2>Governance actions</h2><div class="panel"><table>` +
           `<tr><th>Action</th><th>Type</th><th>Yes / No / Abstain</th></tr>${actionRows}</table></div>` +
           `<h2>Delegated representatives (DReps)</h2><div class="panel"><table>` +
           `<tr><th>DRep</th><th>Deposit</th><th>Votes cast</th></tr>${drepRows}</table></div>`;
+      }
+
+      async function paramsPage() {
+        const p = await api("/protocol-parameters");
+        const labels = {
+          min_fee_a: "Min fee coefficient (a)",
+          min_fee_b: "Min fee constant (b)",
+          max_block_body_size: "Max block body size",
+          max_tx_size: "Max transaction size",
+          max_block_header_size: "Max block header size",
+          key_deposit: "Stake key deposit",
+          pool_deposit: "Pool deposit",
+          n_opt: "Target number of pools (k)",
+          min_pool_cost: "Min pool cost",
+          coins_per_utxo_byte: "Coins per UTxO byte",
+        };
+        const lovelace = new Set([
+          "key_deposit",
+          "pool_deposit",
+          "min_pool_cost",
+          "min_fee_b",
+          "coins_per_utxo_byte",
+        ]);
+        const keys = Object.keys(p);
+        const rows = keys.length
+          ? keys
+              .map((k) => {
+                const val = lovelace.has(k) ? ada(p[k]) : String(p[k]);
+                return `<tr><td>${esc(labels[k] || k)}</td><td class="wrap">${esc(val)}</td></tr>`;
+              })
+              .join("")
+          : `<tr><td colspan="2" class="muted">No protocol parameters recorded yet (they arrive with the first local-state-query snapshot).</td></tr>`;
+        app.innerHTML =
+          `<h2>Protocol parameters</h2><div class="panel"><table>` +
+          `<tr><th>Parameter</th><th>Value</th></tr>${rows}</table></div>`;
       }
 
       async function govDetail(id) {
@@ -565,12 +602,20 @@
             return `<tr><td>${esc(c.cert_type)}</td><td class="wrap">${subj}</td><td class="wrap">${esc(c.detail) || "<span class='muted'>-</span>"}</td></tr>`;
           })
           .join("");
-        const listPanel = (title, items) =>
-          items && items.length
-            ? `<h2>${title}</h2><div class="panel"><ul style="margin:0;padding-left:1.1rem">` +
-              items.map((x) => `<li class="wrap">${esc(x)}</li>`).join("") +
-              `</ul></div>`
-            : "";
+        const propRows = (t.proposals || [])
+          .map(
+            (p) =>
+              `<tr><td class="wrap">${link("gov", p.gov_action_id, short(p.gov_action_id))}</td>` +
+              `<td>${esc(p.action_type)}</td><td class="lovelace">${ada(p.deposit)}</td></tr>`
+          )
+          .join("");
+        const voteRows = (t.votes || [])
+          .map(
+            (v) =>
+              `<tr><td class="wrap">${link("gov", v.gov_action_id, short(v.gov_action_id))}</td>` +
+              `<td>${esc(v.voter_role)}</td><td>${esc(v.vote)}</td></tr>`
+          )
+          .join("");
         return (
           `<div class="panel"><div class="kv">` +
           `<div>id</div><div>${esc(t.tx_id)}</div>` +
@@ -582,8 +627,14 @@
             ? `<h2>Certificates</h2><div class="panel"><table>` +
               `<tr><th>Type</th><th>Subject</th><th>Detail</th></tr>${certRows}</table></div>`
             : "") +
-          listPanel("Governance actions", t.proposals) +
-          listPanel("Votes", t.votes)
+          (propRows
+            ? `<h2>Governance actions</h2><div class="panel"><table>` +
+              `<tr><th>Action</th><th>Type</th><th>Deposit</th></tr>${propRows}</table></div>`
+            : "") +
+          (voteRows
+            ? `<h2>Votes</h2><div class="panel"><table>` +
+              `<tr><th>Action</th><th>Role</th><th>Vote</th></tr>${voteRows}</table></div>`
+            : "")
         );
       }
 
@@ -673,6 +724,7 @@
           else if (parts[0] === "pools") await poolsPage();
           else if (parts[0] === "pool" && parts[1]) await poolDetail(parts[1]);
           else if (parts[0] === "governance") await governancePage();
+          else if (parts[0] === "params") await paramsPage();
           else if (parts[0] === "gov" && parts[1]) await govDetail(parts[1]);
           else if (parts[0] === "certs") await certificatesPage(parts[1] || null);
           else if (parts[0] === "drep" && parts[1]) await drepDetail(parts[1]);

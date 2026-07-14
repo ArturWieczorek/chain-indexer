@@ -64,6 +64,7 @@ async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  #
                 {p.pool_id: p.stake for p in snap.stake_distribution},
                 int(snap.protocol_params.get("n_opt", 0)),
             )
+            store.record_protocol_params(snap.protocol_params)
             credentials = store.registered_stake_credentials()
             if credentials:
                 states = await client.account_states(credentials)

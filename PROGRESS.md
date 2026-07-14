@@ -40,3 +40,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch34 - Certificates browser (v1.16.0)
 - [x] ch35 - Transaction detail tabs (v1.17.0)
 - [x] ch36 - Policy pages and readable asset names (v1.18.0)
+- [x] ch37 - Protocol parameters and transaction governance links (v1.19.0)

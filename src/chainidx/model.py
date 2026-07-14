@@ -348,11 +348,17 @@ class GovActionSummary:
 
 @dataclass(frozen=True)
 class GovVoteRecord:
-    """A single vote cast on a governance action (chapter 23)."""
+    """A single vote cast on a governance action (chapter 23).
+
+    ``gov_action_id`` is populated when the vote is listed from a transaction's
+    side (chapter 37), so the vote can link to the action it refers to; it stays
+    empty when votes are listed for a known action.
+    """
 
     voter_role: str
     voter_id: str
     vote: str
+    gov_action_id: str = ""
 
 
 @dataclass(frozen=True)

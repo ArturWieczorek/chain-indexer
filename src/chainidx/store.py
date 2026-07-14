@@ -39,6 +39,7 @@ from chainidx.model import (
     DRepSummary,
     DRepVote,
     EpochSummary,
+    GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
     Point,
@@ -124,6 +125,14 @@ class Store(Protocol):
         """Return the certificates carried by a transaction, as typed records."""
         ...
 
+    def proposals_for_tx(self, tx_hash: str) -> list[GovActionProposal]:
+        """Return the governance actions proposed by a transaction."""
+        ...
+
+    def votes_for_tx(self, tx_hash: str) -> list[GovVoteRecord]:
+        """Return the votes a transaction cast, each with the action id."""
+        ...
+
     def assets(self) -> tuple[Asset, ...]:
         """Return the native assets currently held in unspent outputs."""
         ...
@@ -158,6 +167,14 @@ class Store(Protocol):
 
     def record_stake_distribution(self, stakes: dict[str, float], n_opt: int) -> None:
         """Replace the live-stake snapshot (from local-state-query)."""
+        ...
+
+    def record_protocol_params(self, params: dict[str, int]) -> None:
+        """Replace the stored protocol parameters (from local-state-query)."""
+        ...
+
+    def protocol_params(self) -> dict[str, int]:
+        """Return the most recent protocol parameters, or an empty dict."""
         ...
 
     def delegation_of(self, stake_address: str) -> str | None:
@@ -470,6 +487,15 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             # Both default for rows written before this migration.
             "ALTER TABLE tx ADD COLUMN fee INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE tx ADD COLUMN metadata TEXT NOT NULL DEFAULT ''",
+        ),
+    ),
+    (
+        11,
+        (
+            # The current protocol parameters, refreshed from local-state-query
+            # (chapter 37). Ledger state, not chain data, so it is not block-keyed
+            # and does not roll back - the next snapshot simply replaces it.
+            "CREATE TABLE protocol_param (key TEXT PRIMARY KEY, value INTEGER NOT NULL)",
         ),
     ),
 ]
@@ -814,6 +840,40 @@ class SqliteStore:
             for r in rows
         ]
 
+    def proposals_for_tx(self, tx_hash: str) -> list[GovActionProposal]:
+        rows = self._conn.execute(
+            "SELECT p.gov_action_id AS gid, p.action_type AS action_type, p.deposit AS deposit, "
+            "p.return_addr AS return_addr FROM gov_action_proposal p "
+            "JOIN tx t ON t.id = p.tx_id WHERE t.hash = ? ORDER BY p.id",
+            (tx_hash,),
+        ).fetchall()
+        return [
+            GovActionProposal(
+                gov_action_id=r["gid"],
+                action_type=r["action_type"],
+                deposit=r["deposit"],
+                return_address=r["return_addr"],
+            )
+            for r in rows
+        ]
+
+    def votes_for_tx(self, tx_hash: str) -> list[GovVoteRecord]:
+        rows = self._conn.execute(
+            "SELECT v.gov_action_id AS gid, v.voter_role AS voter_role, v.voter_id AS voter_id, "
+            "v.vote AS vote FROM voting_procedure v "
+            "JOIN tx t ON t.id = v.tx_id WHERE t.hash = ? ORDER BY v.id",
+            (tx_hash,),
+        ).fetchall()
+        return [
+            GovVoteRecord(
+                voter_role=r["voter_role"],
+                voter_id=r["voter_id"],
+                vote=r["vote"],
+                gov_action_id=r["gid"],
+            )
+            for r in rows
+        ]
+
     def tx_activity(self, tx_hash: str) -> TxActivity:
         row = self._conn.execute("SELECT id FROM tx WHERE hash = ?", (tx_hash,)).fetchone()
         if row is None:
@@ -939,6 +999,17 @@ class SqliteStore:
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (float(n_opt),),
             )
+
+    def record_protocol_params(self, params: dict[str, int]) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM protocol_param")
+            self._conn.executemany(
+                "INSERT INTO protocol_param (key, value) VALUES (?, ?)", list(params.items())
+            )
+
+    def protocol_params(self) -> dict[str, int]:
+        rows = self._conn.execute("SELECT key, value FROM protocol_param ORDER BY key").fetchall()
+        return {r["key"]: r["value"] for r in rows}
 
     def _ledger_stat(self, key: str) -> float:
         row = self._conn.execute("SELECT value FROM ledger_stat WHERE key = ?", (key,)).fetchone()

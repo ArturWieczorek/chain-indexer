@@ -26,6 +26,7 @@ from chainidx.model import (
     DRepSummary,
     DRepVote,
     EpochSummary,
+    GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
     PoolSummary,
@@ -184,7 +185,20 @@ def _gov_action(summary: GovActionSummary) -> dict[str, Any]:
 
 
 def _vote(record: GovVoteRecord) -> dict[str, Any]:
-    return {"voter_role": record.voter_role, "voter_id": record.voter_id, "vote": record.vote}
+    return {
+        "voter_role": record.voter_role,
+        "voter_id": record.voter_id,
+        "vote": record.vote,
+        "gov_action_id": record.gov_action_id,
+    }
+
+
+def _proposal(proposal: GovActionProposal) -> dict[str, Any]:
+    return {
+        "gov_action_id": proposal.gov_action_id,
+        "action_type": proposal.action_type,
+        "deposit": proposal.deposit,
+    }
 
 
 def _drep(summary: DRepSummary) -> dict[str, Any]:
@@ -284,10 +298,9 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         if detail is None:
             raise HTTPException(status_code=404, detail="transaction not found")
         out = _tx(detail)
-        activity = store.tx_activity(tx_hash)
         out["certificates"] = [_certificate(c) for c in store.certificates_for_tx(tx_hash)]
-        out["proposals"] = list(activity.proposals)
-        out["votes"] = list(activity.votes)
+        out["proposals"] = [_proposal(p) for p in store.proposals_for_tx(tx_hash)]
+        out["votes"] = [_vote(v) for v in store.votes_for_tx(tx_hash)]
         return out
 
     @app.get("/addresses/{address}")
@@ -439,6 +452,10 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
                 tip_time=network.slot_time(tip.point.slot_no),
             )
         return state
+
+    @app.get("/protocol-parameters")
+    def protocol_parameters() -> dict[str, int]:
+        return store.protocol_params()
 
     return app
 
