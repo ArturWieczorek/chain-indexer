@@ -456,6 +456,21 @@ def create_app(
         out["blocks_by_epoch"] = [
             {"epoch_no": e, "block_count": n} for e, n in store.pool_blocks_by_epoch(key, length)
         ]
+        if network is not None:
+            # Per-epoch performance from the captured stake history: saturation and
+            # expected blocks (from stake) against blocks actually made.
+            n_opt = store.protocol_params().get("n_opt", 0)
+            made = dict(store.pool_blocks_by_epoch(key, network.epoch_length))
+            out["epoch_performance"] = [
+                {
+                    "epoch_no": epoch,
+                    "stake": stake,
+                    "saturation": stake * n_opt,
+                    "expected_blocks": round(network.expected_blocks(stake), 2),
+                    "made_blocks": made.get(epoch, 0),
+                }
+                for epoch, stake in store.pool_stake_history(key)
+            ]
         if network is not None and summary.registered_slot >= 0:
             out["registered_time"] = network.slot_time(summary.registered_slot)
         # Off-chain metadata (name/ticker/homepage), fetched only when enabled.

@@ -511,6 +511,32 @@
         );
       }
 
+      // Several series on one chart (shared scale), for comparisons like made vs
+      // expected. Each series is {fn, color, label}.
+      function multiLine(data, seriesList) {
+        if (!data.length) return `<div class="panel muted">no data</div>`;
+        const H = 150;
+        const W = Math.max(320, data.length * 14);
+        const pad = 26;
+        const max = Math.max(1, ...data.flatMap((d) => seriesList.map((s) => s.fn(d))));
+        const x = (i) => pad + (i * (W - pad - 8)) / Math.max(1, data.length - 1);
+        const y = (v) => H - 20 - (v / max) * (H - 34);
+        const lines = seriesList
+          .map((s) => {
+            const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(s.fn(d)).toFixed(1)}`).join(" ");
+            return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="1.5"></polyline>`;
+          })
+          .join("");
+        const legend = seriesList
+          .map((s) => `<span style="color:${s.color}">&#9632; ${esc(s.label)}</span>`)
+          .join("&nbsp;&nbsp;");
+        return (
+          `<div class="panel" style="overflow-x:auto">` +
+          `<div class="muted" style="margin-bottom:.3rem">${legend}</div>` +
+          `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${lines}</svg></div>`
+        );
+      }
+
       async function analyticsPage() {
         const [s, series, topAddr, topAcct] = await Promise.all([
           api("/analytics/summary"),
@@ -839,6 +865,17 @@
         const stakeChart = stakeSeries.length
           ? `<h2>Live stake per epoch</h2>${lineChart(stakeSeries, (d) => d.stake * 100, (v) => v.toFixed(3) + "%")}`
           : "";
+        const ep = p.epoch_performance || [];
+        const madeExpectedChart = ep.length
+          ? `<h2>Blocks: made vs expected per epoch</h2>` +
+            multiLine(ep, [
+              { fn: (d) => d.made_blocks, color: "var(--accent)", label: "made" },
+              { fn: (d) => d.expected_blocks, color: "var(--good)", label: "expected" },
+            ])
+          : "";
+        const satChart = ep.length
+          ? `<h2>Saturation per epoch</h2>${lineChart(ep, (d) => d.saturation * 100, (v) => v.toFixed(2) + "%")}`
+          : "";
         const owners = (p.owners || [])
           .map((o) => link("account", o, short(o)))
           .join("<br>") || "<span class='muted'>none</span>";
@@ -877,6 +914,8 @@
           `</div></div>` +
           perf +
           blocksChart +
+          madeExpectedChart +
+          satChart +
           stakeChart +
           ((p.delegators_list || []).length
             ? `<h2>Delegators</h2><div class="panel"><table>` +

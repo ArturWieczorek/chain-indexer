@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.41.0] - Pool performance: expected vs made, and saturation
+
+### Added
+
+- `NetworkParams.active_slot_coeff` (from genesis) and `expected_blocks`.
+- `/pools/{id}` `epoch_performance` (per captured epoch: stake, saturation,
+  expected and made blocks); a `multiLine` chart helper; made-vs-expected and
+  saturation charts on the pool page. Rewards/ROS remain out of scope.
+
 ## [1.40.0] - A configuration file
 
 ### Added

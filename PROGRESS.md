@@ -62,3 +62,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch56 - Governance tabs (v1.38.0)
 - [x] ch57 - Header status and theme label (v1.39.0)
 - [x] ch58 - A configuration file (v1.40.0)
+- [x] ch59 - Pool performance: expected vs made, and saturation (v1.41.0)

@@ -47,6 +47,7 @@ class NetworkParams:
     system_start: str  # ISO-8601, the time of slot 0
     slot_length: float  # seconds per slot
     epoch_length: int  # slots per epoch
+    active_slot_coeff: float = 0.05  # fraction of slots that make a block (f)
 
     @classmethod
     def from_genesis(cls, shelley_genesis_path: str) -> NetworkParams:
@@ -56,7 +57,17 @@ class NetworkParams:
             system_start=data["systemStart"],
             slot_length=float(data["slotLength"]),
             epoch_length=int(data["epochLength"]),
+            active_slot_coeff=float(data.get("activeSlotsCoeff", 0.05)),
         )
+
+    def expected_blocks(self, stake_fraction: float) -> float:
+        """A pool's expected blocks in an epoch for a given active-stake share.
+
+        Roughly ``f * epoch_length * stake_fraction``: of the slots in an epoch, a
+        fraction ``f`` produce a block, and a pool wins them in proportion to its
+        active stake.
+        """
+        return self.active_slot_coeff * self.epoch_length * stake_fraction
 
     def _start(self) -> datetime:
         return datetime.fromisoformat(self.system_start)

@@ -16,6 +16,14 @@ def test_from_genesis_reads_the_params() -> None:
     assert p.system_start == "2026-07-13T20:36:52Z"
     assert p.slot_length == 0.2
     assert p.epoch_length == 1000
+    assert p.active_slot_coeff == 0.1
+
+
+def test_expected_blocks() -> None:
+    p = params()  # epoch_length 1000, active_slot_coeff default 0.05
+    # f * epoch_length * stake_fraction = 0.05 * 1000 * 0.2 = 10
+    assert p.expected_blocks(0.2) == 10.0
+    assert p.expected_blocks(0.0) == 0.0
 
 
 def test_epoch_of() -> None:

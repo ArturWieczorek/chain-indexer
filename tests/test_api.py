@@ -194,6 +194,24 @@ def test_pool_stake_history() -> None:
     assert d["stake_history"] == [{"epoch": 198, "stake": 0.12}, {"epoch": 199, "stake": 0.15}]
 
 
+def test_pool_epoch_performance_expected_vs_made() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration("poolP", 1000, 0.02, "e0" + "11" * 28)
+    # One block minted in epoch 1 (slot 110); epoch_length 100.
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", issuer="poolP", txs=(Tx("t1", certificates=(reg,)),))
+    )
+    store.apply_block(Block(2, 110, "b2", "b1", issuer="poolP", txs=()))
+    store.record_protocol_params({"n_opt": 500})
+    store.record_stake_history(1, {"poolP": 0.2})  # 20% of stake in epoch 1
+    net = NetworkParams("2026-07-13T20:36:52Z", 0.2, 100, active_slot_coeff=0.05)
+    d = TestClient(create_app(store, net)).get("/pools/poolP").json()
+    perf = {p["epoch_no"]: p for p in d["epoch_performance"]}
+    assert perf[1]["made_blocks"] == 1
+    assert perf[1]["expected_blocks"] == 1.0  # 0.05 * 100 * 0.2
+    assert perf[1]["saturation"] == 0.2 * 500  # stake fraction * n_opt
+
+
 def test_pool_offchain_metadata_fetched_when_enabled() -> None:
     store = SqliteStore()
     reg = PoolRegistration("poolM", 1000, 0.02, "e0" + "11" * 28, metadata_url="http://x/p.json")
