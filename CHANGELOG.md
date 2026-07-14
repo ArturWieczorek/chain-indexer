@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.37.0] - Per-epoch stake history (opt-in)
+
+### Added
+
+- Migration 18 `stake_history`; `store.record_stake_history` /
+  `store.pool_stake_history`; the snapshot loop records per-epoch live stake when
+  `CHAINIDX_STAKE_HISTORY` is set.
+- `/pools/{id}` returns `stake_history`; the pool page shows a live-stake-per-epoch
+  chart.
+
 ## [1.36.0] - Richer recent blocks on the pool page
 
 ### Changed

@@ -210,6 +210,14 @@ class Store(Protocol):
         """Replace the live-stake snapshot (from local-state-query)."""
         ...
 
+    def record_stake_history(self, epoch: int, stakes: dict[str, float]) -> None:
+        """Record each pool's live stake for an epoch (accumulating history)."""
+        ...
+
+    def pool_stake_history(self, pool_id: str) -> list[tuple[int, float]]:
+        """Return ``(epoch, stake)`` for a pool over the recorded epochs, oldest first."""
+        ...
+
     def record_protocol_params(self, params: dict[str, int]) -> None:
         """Replace the stored protocol parameters (from local-state-query)."""
         ...
@@ -631,6 +639,20 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "ALTER TABLE pool_registration ADD COLUMN metadata_hash TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE pool_registration ADD COLUMN owners TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE pool_registration ADD COLUMN relays TEXT NOT NULL DEFAULT '[]'",
+        ),
+    ),
+    (
+        18,
+        (
+            # Per-epoch live-stake history (chapter 55), accumulated from
+            # local-state-query snapshots. Ledger state, not chain data, so it is
+            # not block-keyed and does not roll back; one row per (epoch, pool).
+            "CREATE TABLE stake_history ("
+            "  epoch   INTEGER NOT NULL,"
+            "  pool_id TEXT    NOT NULL,"
+            "  stake   REAL    NOT NULL,"
+            "  PRIMARY KEY (epoch, pool_id)"
+            ")",
         ),
     ),
 ]
@@ -1248,6 +1270,21 @@ class SqliteStore:
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (float(n_opt),),
             )
+
+    def record_stake_history(self, epoch: int, stakes: dict[str, float]) -> None:
+        with self._conn:
+            self._conn.executemany(
+                "INSERT INTO stake_history (epoch, pool_id, stake) VALUES (?, ?, ?) "
+                "ON CONFLICT(epoch, pool_id) DO UPDATE SET stake = excluded.stake",
+                [(epoch, pool_id, stake) for pool_id, stake in stakes.items()],
+            )
+
+    def pool_stake_history(self, pool_id: str) -> list[tuple[int, float]]:
+        rows = self._conn.execute(
+            "SELECT epoch, stake FROM stake_history WHERE pool_id = ? ORDER BY epoch",
+            (pool_id,),
+        ).fetchall()
+        return [(r["epoch"], float(r["stake"])) for r in rows]
 
     def record_protocol_params(self, params: dict[str, int]) -> None:
         with self._conn:

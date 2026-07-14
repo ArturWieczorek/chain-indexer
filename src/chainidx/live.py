@@ -62,18 +62,20 @@ def create_live_app(
 async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  # pragma: no cover
     """Periodically refresh the live-stake snapshot via local-state-query."""
     import asyncio
+    import os
 
     from chainidx.localstate import LocalStateClient
 
     client = LocalStateClient(socket_path, magic)
+    keep_history = bool(os.environ.get("CHAINIDX_STAKE_HISTORY"))
     while True:
         try:
             snap = await client.snapshot()
-            store.record_stake_distribution(
-                {p.pool_id: p.stake for p in snap.stake_distribution},
-                int(snap.protocol_params.get("n_opt", 0)),
-            )
+            stakes = {p.pool_id: p.stake for p in snap.stake_distribution}
+            store.record_stake_distribution(stakes, int(snap.protocol_params.get("n_opt", 0)))
             store.record_protocol_params(snap.protocol_params)
+            if keep_history:
+                store.record_stake_history(snap.epoch, stakes)
             credentials = store.registered_stake_credentials()
             if credentials:
                 states = await client.account_states(credentials)

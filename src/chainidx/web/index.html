@@ -811,6 +811,10 @@
         const blocksChart = series.length
           ? `<h2>Blocks produced per epoch</h2>${lineChart(series, (d) => d.block_count, (v) => `${v} blocks`)}`
           : "";
+        const stakeSeries = (p.stake_history || []).map((h) => ({ epoch_no: h.epoch, stake: h.stake }));
+        const stakeChart = stakeSeries.length
+          ? `<h2>Live stake per epoch</h2>${lineChart(stakeSeries, (d) => d.stake * 100, (v) => v.toFixed(3) + "%")}`
+          : "";
         const owners = (p.owners || [])
           .map((o) => link("account", o, short(o)))
           .join("<br>") || "<span class='muted'>none</span>";
@@ -849,6 +853,7 @@
           `</div></div>` +
           perf +
           blocksChart +
+          stakeChart +
           ((p.delegators_list || []).length
             ? `<h2>Delegators</h2><div class="panel"><table>` +
               (p.delegators_list || [])

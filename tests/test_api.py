@@ -182,6 +182,18 @@ def test_config_endpoint_exposes_ipfs_gateway() -> None:
     assert api.get("/config").json() == {"ipfs_gateway": "https://gw/ipfs/"}
 
 
+def test_pool_stake_history() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration("poolH", 1000, 0.02, "e0" + "11" * 28)
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=(Tx("t1", certificates=(reg,)),)))
+    # Two epochs of history; a re-record within an epoch overwrites, not duplicates.
+    store.record_stake_history(198, {"poolH": 0.10})
+    store.record_stake_history(198, {"poolH": 0.12})
+    store.record_stake_history(199, {"poolH": 0.15})
+    d = TestClient(create_app(store)).get("/pools/poolH").json()
+    assert d["stake_history"] == [{"epoch": 198, "stake": 0.12}, {"epoch": 199, "stake": 0.15}]
+
+
 def test_pool_offchain_metadata_fetched_when_enabled() -> None:
     store = SqliteStore()
     reg = PoolRegistration("poolM", 1000, 0.02, "e0" + "11" * 28, metadata_url="http://x/p.json")

@@ -451,6 +451,7 @@ def create_app(
             if (b := store.get_block(h)) is not None
         ]
         out["delegators_list"] = [_stake_display(c) for c in store.pool_delegators(key)]
+        out["stake_history"] = [{"epoch": e, "stake": s} for e, s in store.pool_stake_history(key)]
         length = network.epoch_length if network is not None else 1
         out["blocks_by_epoch"] = [
             {"epoch_no": e, "block_count": n} for e, n in store.pool_blocks_by_epoch(key, length)
