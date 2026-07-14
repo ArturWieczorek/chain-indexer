@@ -158,25 +158,50 @@ toward db-sync without rewrites:
 
 ## Getting started from zero
 
-This walks you from "I have a `cardano-node` running" to "I have an indexer and an
+This walks you all the way from "I have nothing" to "I have an indexer and an
 explorer in my browser". No prior indexer experience assumed.
 
 ### Step 0 - what you need before you start
 
-1. **A running `cardano-node`.** It can be a local test cluster, or a node synced
-   to preprod, preview, or mainnet. You do not configure the node here; you only
-   need two things from it:
-   - the **socket path** it is listening on (the node's `--socket-path`), and
-   - the **Shelley genesis file** for the network the node is on (the
-     `shelley-genesis.json` the node was started with).
-2. **Python 3.12 or newer.** Check with `python3 --version`.
-3. That is it for SQLite. For Postgres you also need a running PostgreSQL server
-   (any recent version) and permission to create a database.
+The indexer does not run a blockchain itself - it *follows* one. So the one real
+prerequisite is a **running `cardano-node`** for it to talk to. From that node you
+need just two things (Step 2 points the config at them):
 
-If you do not have a node and just want to try it, the easiest way to get one is a
-local cluster with [cardonnay](https://github.com/mkoura/cardonnay)
-(`cardonnay create -t conway_fast`), which prints the socket and genesis paths for
-you.
+- the **socket path** the node is listening on (its `--socket-path`), and
+- the **Shelley genesis file** for the node's network (the `shelley-genesis.json`
+  the node was started with; it fixes slot timing).
+
+You also need **Python 3.12 or newer** (`python3 --version`), and - only for the
+Postgres option - a PostgreSQL server you can create a database on.
+
+**Do not have a node yet? Two ways to get one:**
+
+- **Quickest, and what this project is built for - a local test cluster with
+  [cardonnay](https://github.com/mkoura/cardonnay).** One command spins up a small
+  Conway cluster in seconds:
+
+  ```bash
+  cardonnay create -t conway_fast
+  ```
+
+  It prints where it put everything. The two paths you want live under its state
+  directory, for example:
+
+  ```
+  socket:  /var/tmp/cardonnay-.../state-cluster0/bft1.socket
+  genesis: /var/tmp/cardonnay-.../state-cluster0/shelley/genesis.json
+  ```
+
+  A local cluster uses **network magic `42`**, produces blocks immediately, and
+  needs no syncing - ideal for trying the indexer end to end.
+
+- **A real testnet or mainnet node.** Install and run `cardano-node` for preview,
+  preprod, or mainnet following the
+  [official docs](https://developers.cardano.org/docs/get-started/cardano-node/),
+  and let it sync. Its `--socket-path` and the network's `shelley-genesis.json`
+  (from the node's config bundle) are the two paths you need.
+
+Once the node is up and you know those two paths, continue below.
 
 ### Step 1 - get the code and install it
 
