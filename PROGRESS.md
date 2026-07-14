@@ -42,3 +42,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch36 - Policy pages and readable asset names (v1.18.0)
 - [x] ch37 - Protocol parameters and transaction governance links (v1.19.0)
 - [x] ch38 - The constitutional committee (v1.20.0)
+- [x] ch39 - Reward withdrawals (v1.21.0)

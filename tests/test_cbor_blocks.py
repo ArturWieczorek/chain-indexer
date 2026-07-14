@@ -144,6 +144,16 @@ def test_decode_all_conway_certificate_tags() -> None:
     assert _decode_certificates([[99, cred]]) == ()
 
 
+def test_decode_withdrawals() -> None:
+    from chainidx.cbor_blocks import _decode_withdrawals
+
+    account = bytes.fromhex("e0" + "11" * 28)
+    (w,) = _decode_withdrawals({5: {account: 1_500_000}})
+    assert w.stake_address == "e0" + "11" * 28
+    assert w.amount == 1_500_000
+    assert _decode_withdrawals({}) == ()
+
+
 def test_decode_drep_no_confidence_target() -> None:
     cred = [0, bytes.fromhex("11" * 28)]
     (vote,) = _decode_certificates([[9, cred, [3]]])

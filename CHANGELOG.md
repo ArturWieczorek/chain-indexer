@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.21.0] - Reward withdrawals
+
+### Added
+
+- `Withdrawal` / `WithdrawalRecord` models, `Tx.withdrawals`, and
+  `_decode_withdrawals` (tx body key 5).
+- `WithdrawalIndexer`; migration 12 `withdrawal` table (rolls back with blocks);
+  `store.withdrawals` / `store.withdrawals_for_tx`.
+- `/withdrawals`, a Withdrawals section in the explorer, and withdrawals on the
+  transaction page (reward account linking to its account).
+
 ## [1.20.0] - The constitutional committee
 
 ### Added

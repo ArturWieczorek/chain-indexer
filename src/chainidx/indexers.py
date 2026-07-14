@@ -253,6 +253,24 @@ class GovIndexer:
             )
 
 
+class WithdrawalIndexer:
+    """Records reward withdrawals found in a transaction."""
+
+    def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
+        for w in tx.withdrawals:
+            conn.execute(
+                "INSERT INTO withdrawal (block_id, tx_id, stake_address, amount) "
+                "VALUES (?, ?, ?, ?)",
+                (block_id, tx_db_id, w.stake_address, w.amount),
+            )
+
+
 def default_indexers() -> tuple[Indexer, ...]:
     """The indexers a store runs by default, in the order they must run."""
-    return (OutputIndexer(), InputIndexer(), CertIndexer(), GovIndexer())
+    return (
+        OutputIndexer(),
+        InputIndexer(),
+        CertIndexer(),
+        GovIndexer(),
+        WithdrawalIndexer(),
+    )

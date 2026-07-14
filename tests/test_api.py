@@ -24,6 +24,7 @@ from chainidx.model import (
     TxIn,
     TxOut,
     VoteDelegation,
+    Withdrawal,
 )
 from chainidx.network import NetworkParams
 from chainidx.store import SqliteStore
@@ -325,6 +326,7 @@ def test_tx_detail(client: TestClient) -> None:
     assert tx["votes"] == [
         {"voter_role": "DRep", "voter_id": "drep1", "vote": "Yes", "gov_action_id": "gov1"}
     ]
+    assert tx["withdrawals"] == []  # tx2 made no reward withdrawals
     assert client.get("/txs/missing").status_code == 404
 
     # tx1 carried the staking and DRep certificates, now as structured records.
@@ -364,6 +366,26 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert alice["balance"] == 0  # spent in block 2
     bob = client.get("/addresses/bob").json()
     assert bob["balance"] == 5_000_000
+
+
+def test_withdrawals() -> None:
+    assert TestClient(create_app(SqliteStore())).get("/withdrawals").json() == []
+
+    store = SqliteStore()
+    account = "e0" + "11" * 28
+    store.apply_block(
+        Block(
+            1, 10, "b1", "genesis", txs=(Tx("txw", withdrawals=(Withdrawal(account, 2_000_000),)),)
+        )
+    )
+    api = TestClient(create_app(store))
+    ws = api.get("/withdrawals").json()
+    assert len(ws) == 1
+    assert ws[0]["amount"] == 2_000_000
+    assert ws[0]["stake_address"].startswith("stake_test1")
+    assert ws[0]["tx_hash"] == "txw"
+    # The withdrawal also shows on the transaction page.
+    assert api.get("/txs/txw").json()["withdrawals"][0]["amount"] == 2_000_000
 
 
 def test_committee_page() -> None:

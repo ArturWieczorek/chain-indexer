@@ -52,6 +52,7 @@ from chainidx.model import (
     TxActivity,
     TxDetail,
     TxOut,
+    WithdrawalRecord,
 )
 
 
@@ -132,6 +133,14 @@ class Store(Protocol):
 
     def votes_for_tx(self, tx_hash: str) -> list[GovVoteRecord]:
         """Return the votes a transaction cast, each with the action id."""
+        ...
+
+    def withdrawals(self, limit: int = 200) -> list[WithdrawalRecord]:
+        """Return recorded reward withdrawals, newest first."""
+        ...
+
+    def withdrawals_for_tx(self, tx_hash: str) -> list[WithdrawalRecord]:
+        """Return the reward withdrawals made by a transaction."""
         ...
 
     def assets(self) -> tuple[Asset, ...]:
@@ -507,6 +516,21 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE TABLE protocol_param (key TEXT PRIMARY KEY, value INTEGER NOT NULL)",
         ),
     ),
+    (
+        12,
+        (
+            # Reward withdrawals (chapter 39): block-keyed, so they roll back with
+            # their block like every other indexed row.
+            "CREATE TABLE withdrawal ("
+            "  id            INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  block_id      INTEGER NOT NULL REFERENCES block(id),"
+            "  tx_id         INTEGER NOT NULL REFERENCES tx(id),"
+            "  stake_address TEXT    NOT NULL,"
+            "  amount        INTEGER NOT NULL"
+            ")",
+            "CREATE INDEX idx_withdrawal_stake ON withdrawal (stake_address)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -523,6 +547,7 @@ _ROLLBACK_TABLES: tuple[str, ...] = (
     "drep_registration",
     "drep_deregistration",
     "certificate",
+    "withdrawal",
     "gov_action_proposal",
     "voting_procedure",
     "tx",
@@ -880,6 +905,30 @@ class SqliteStore:
                 vote=r["vote"],
                 gov_action_id=r["gid"],
             )
+            for r in rows
+        ]
+
+    def withdrawals(self, limit: int = 200) -> list[WithdrawalRecord]:
+        rows = self._conn.execute(
+            "SELECT w.stake_address AS stake_address, w.amount AS amount, t.hash AS tx_hash "
+            "FROM withdrawal w JOIN tx t ON t.id = w.tx_id ORDER BY w.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            WithdrawalRecord(
+                stake_address=r["stake_address"], amount=r["amount"], tx_hash=r["tx_hash"]
+            )
+            for r in rows
+        ]
+
+    def withdrawals_for_tx(self, tx_hash: str) -> list[WithdrawalRecord]:
+        rows = self._conn.execute(
+            "SELECT w.stake_address AS stake_address, w.amount AS amount "
+            "FROM withdrawal w JOIN tx t ON t.id = w.tx_id WHERE t.hash = ? ORDER BY w.id",
+            (tx_hash,),
+        ).fetchall()
+        return [
+            WithdrawalRecord(stake_address=r["stake_address"], amount=r["amount"], tx_hash=tx_hash)
             for r in rows
         ]
 

@@ -34,6 +34,7 @@ from chainidx.model import (
     ResolvedInput,
     TxDetail,
     TxOut,
+    WithdrawalRecord,
 )
 from chainidx.network import NetworkParams
 from chainidx.store import Store
@@ -210,6 +211,14 @@ def _committee_member(member: CommitteeMember) -> dict[str, Any]:
     }
 
 
+def _withdrawal(record: WithdrawalRecord) -> dict[str, Any]:
+    return {
+        "stake_address": _address_display(record.stake_address),
+        "amount": record.amount,
+        "tx_hash": record.tx_hash,
+    }
+
+
 def _drep(summary: DRepSummary) -> dict[str, Any]:
     return {
         "drep_id": summary.drep_id,
@@ -310,6 +319,7 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         out["certificates"] = [_certificate(c) for c in store.certificates_for_tx(tx_hash)]
         out["proposals"] = [_proposal(p) for p in store.proposals_for_tx(tx_hash)]
         out["votes"] = [_vote(v) for v in store.votes_for_tx(tx_hash)]
+        out["withdrawals"] = [_withdrawal(w) for w in store.withdrawals_for_tx(tx_hash)]
         return out
 
     @app.get("/addresses/{address}")
@@ -412,6 +422,10 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         if member is None:
             raise HTTPException(status_code=404, detail="committee member not found")
         return _committee_member(member)
+
+    @app.get("/withdrawals")
+    def withdrawals() -> list[dict[str, Any]]:
+        return [_withdrawal(w) for w in store.withdrawals()]
 
     @app.get("/certificates")
     def certificates(cert_type: str | None = None) -> list[dict[str, Any]]:

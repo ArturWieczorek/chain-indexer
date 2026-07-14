@@ -58,6 +58,7 @@ from chainidx.model import (
     TxIn,
     TxOut,
     VoteDelegation,
+    Withdrawal,
 )
 
 # Conway transaction-body map keys (a subset - the ones we index).
@@ -65,6 +66,7 @@ _INPUTS = 0
 _OUTPUTS = 1
 _FEE = 2
 _CERTIFICATES = 4
+_WITHDRAWALS = 5
 _VOTING_PROCEDURES = 19
 _PROPOSAL_PROCEDURES = 20
 
@@ -283,6 +285,14 @@ def _metadata_json(aux: Any) -> str:
     return json.dumps({str(label): _metadatum_to_json(v) for label, v in meta.items()})
 
 
+def _decode_withdrawals(body: dict[int, Any]) -> tuple[Withdrawal, ...]:
+    """Decode reward withdrawals (tx body key 5): ``{reward_account: coin}``."""
+    return tuple(
+        Withdrawal(stake_address=account.hex(), amount=amount)
+        for account, amount in (body.get(_WITHDRAWALS) or {}).items()
+    )
+
+
 def _decode_tx(tx_id: str, body: dict[int, Any], metadata: str = "") -> Tx:
     inputs = tuple(TxIn(tx_id=i[0].hex(), index=i[1]) for i in body.get(_INPUTS, ()))
     outputs = tuple(_decode_output(o) for o in body.get(_OUTPUTS, ()))
@@ -294,6 +304,7 @@ def _decode_tx(tx_id: str, body: dict[int, Any], metadata: str = "") -> Tx:
         certificates=certificates,
         proposals=_decode_proposals(body, tx_id),
         votes=_decode_votes(body),
+        withdrawals=_decode_withdrawals(body),
         fee=body.get(_FEE, 0),
         metadata=metadata,
     )

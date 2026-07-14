@@ -252,6 +252,7 @@ class Tx:
     certificates: tuple[Certificate, ...] = ()
     proposals: tuple[GovActionProposal, ...] = ()
     votes: tuple[GovVote, ...] = ()
+    withdrawals: tuple[Withdrawal, ...] = ()
     fee: int = 0
     metadata: str = ""  # a JSON string of the transaction's metadata, or ""
 
@@ -285,6 +286,27 @@ class ResolvedInput:
     address: str
     lovelace: int
     assets: tuple[Asset, ...] = ()
+
+
+@dataclass(frozen=True)
+class Withdrawal:
+    """A withdrawal of staking rewards from a reward account (chapter 39).
+
+    ``stake_address`` is the reward account (a stake address, hex); ``amount`` is
+    the lovelace withdrawn.
+    """
+
+    stake_address: str
+    amount: int
+
+
+@dataclass(frozen=True)
+class WithdrawalRecord:
+    """A withdrawal as the browse list reports it, with its transaction (ch39)."""
+
+    stake_address: str
+    amount: int
+    tx_hash: str
 
 
 @dataclass(frozen=True)
