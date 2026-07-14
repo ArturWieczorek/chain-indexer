@@ -789,9 +789,13 @@ indexer. The most common ones:
   the preprod genesis, `2` with preview, and so on.
 - **`ModuleNotFoundError: psycopg` (Postgres).** The driver is not installed. Run
   `pip install -e ".[chain,postgres]"`.
-- **How do I stop it, and does it run forever?** It follows the tip forever; press
-  **Ctrl-C** to stop. Restarting the same command resumes from the database - safe
-  to do any time.
+- **How do I stop it, and does it run forever?** It follows the tip forever. If it
+  is running in your terminal, press **Ctrl-C**. If you started it in the background
+  or a terminal you have since closed, stop it by its port instead:
+  `fuser -k 8000/tcp` (or `lsof -ti tcp:8000 | xargs kill`) - use whatever port it
+  binds. Check whether one is running with `curl -s localhost:8000/health` or
+  `ss -ltnp | grep :8000`. Restarting the same command resumes from the database -
+  safe to do any time.
 - **How do I start indexing from scratch?** Stop it, then delete the database: the
   SQLite file (`rm chain.db`), or for Postgres `dropdb chainidx && createdb chainidx`.
   Start it again and it re-syncs from the beginning.
