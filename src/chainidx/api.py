@@ -23,6 +23,7 @@ from chainidx.model import (
     AssetDetail,
     Block,
     CertificateRecord,
+    CommitteeMember,
     DRepSummary,
     DRepVote,
     EpochSummary,
@@ -198,6 +199,14 @@ def _proposal(proposal: GovActionProposal) -> dict[str, Any]:
         "gov_action_id": proposal.gov_action_id,
         "action_type": proposal.action_type,
         "deposit": proposal.deposit,
+    }
+
+
+def _committee_member(member: CommitteeMember) -> dict[str, Any]:
+    return {
+        "cold_credential": member.cold_credential,
+        "hot_credential": member.hot_credential,
+        "resigned": member.resigned,
     }
 
 
@@ -392,6 +401,17 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         out = _drep(match)
         out["votes"] = [_drep_vote(v) for v in store.drep_votes(drep_id)]
         return out
+
+    @app.get("/governance/committee")
+    def committee() -> list[dict[str, Any]]:
+        return [_committee_member(m) for m in store.committee_members()]
+
+    @app.get("/governance/committee/{cold_credential}")
+    def committee_member(cold_credential: str) -> dict[str, Any]:
+        member = store.committee_member(cold_credential)
+        if member is None:
+            raise HTTPException(status_code=404, detail="committee member not found")
+        return _committee_member(member)
 
     @app.get("/certificates")
     def certificates(cert_type: str | None = None) -> list[dict[str, Any]]:

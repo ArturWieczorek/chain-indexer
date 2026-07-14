@@ -362,6 +362,7 @@
           : `<tr><td colspan="3" class="muted">No DReps registered yet.</td></tr>`;
         app.innerHTML =
           `<div class="panel" style="display:flex;gap:.4rem">` +
+          `<a class="pill" href="#/committee">Committee</a>` +
           `<a class="pill" href="#/params">Protocol parameters</a></div>` +
           `<h2>Governance actions</h2><div class="panel"><table>` +
           `<tr><th>Action</th><th>Type</th><th>Yes / No / Abstain</th></tr>${actionRows}</table></div>` +
@@ -404,16 +405,46 @@
           `<tr><th>Parameter</th><th>Value</th></tr>${rows}</table></div>`;
       }
 
+      function committeeStatus(m) {
+        return m.resigned ? "<span class='muted'>resigned</span>" : "active";
+      }
+
+      async function committeePage() {
+        const members = await api("/governance/committee");
+        const rows = members.length
+          ? members
+              .map(
+                (m) =>
+                  `<tr><td class="wrap">${link("committee", m.cold_credential, short(m.cold_credential))}</td>` +
+                  `<td class="wrap">${esc(short(m.hot_credential))}</td>` +
+                  `<td>${committeeStatus(m)}</td></tr>`
+              )
+              .join("")
+          : `<tr><td colspan="3" class="muted">No committee members on-chain yet.</td></tr>`;
+        app.innerHTML =
+          `<h2>Constitutional committee</h2><div class="panel"><table>` +
+          `<tr><th>Cold credential</th><th>Hot credential</th><th>Status</th></tr>${rows}</table></div>`;
+      }
+
+      async function committeeMemberPage(cold) {
+        const m = await api(`/governance/committee/${cold}`);
+        app.innerHTML =
+          `<h2>Committee member</h2><div class="panel"><div class="kv">` +
+          `<div>cold credential</div><div class="wrap">${esc(m.cold_credential)}</div>` +
+          `<div>hot credential</div><div class="wrap">${esc(m.hot_credential)}</div>` +
+          `<div>status</div><div>${committeeStatus(m)}</div></div></div>`;
+      }
+
       async function govDetail(id) {
         const a = await api(`/governance/actions/${encodeURIComponent(id)}`);
         const votes = (a.votes || [])
           .map((v) => {
             // Link each voter to its page: a DRep to its DRep page, an SPO to its
-            // pool page. Committee members have no page yet, so they stay text.
+            // pool page, a committee voter to the committee section.
             let voter;
             if (v.voter_role === "DRep") voter = link("drep", v.voter_id, short(v.voter_id));
             else if (v.voter_role === "SPO") voter = link("pool", v.voter_id, short(v.voter_id));
-            else voter = esc(short(v.voter_id));
+            else voter = `<a href="#/committee">${esc(short(v.voter_id))}</a>`;
             return (
               `<tr><td>${esc(v.voter_role)}</td><td class="wrap">${voter}</td>` +
               `<td>${esc(v.vote)}</td></tr>`
@@ -725,6 +756,8 @@
           else if (parts[0] === "pool" && parts[1]) await poolDetail(parts[1]);
           else if (parts[0] === "governance") await governancePage();
           else if (parts[0] === "params") await paramsPage();
+          else if (parts[0] === "committee" && parts[1]) await committeeMemberPage(parts[1]);
+          else if (parts[0] === "committee") await committeePage();
           else if (parts[0] === "gov" && parts[1]) await govDetail(parts[1]);
           else if (parts[0] === "certs") await certificatesPage(parts[1] || null);
           else if (parts[0] === "drep" && parts[1]) await drepDetail(parts[1]);

@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.20.0] - The constitutional committee
+
+### Added
+
+- `CommitteeMember` model; `store.committee_members` / `store.committee_member`,
+  derived from the committee certificates indexed in chapter 34.
+- `/governance/committee` and `/governance/committee/{cold_credential}`.
+- A Committee page and per-member page in the explorer, linked from the governance
+  section; committee voters on governance actions now link into it.
+
 ## [1.19.0] - Protocol parameters and transaction governance links
 
 ### Added

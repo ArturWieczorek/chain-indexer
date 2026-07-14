@@ -288,6 +288,19 @@ class ResolvedInput:
 
 
 @dataclass(frozen=True)
+class CommitteeMember:
+    """A constitutional committee member, derived from certificates (chapter 38).
+
+    A member authorizes a hot credential to vote on its behalf (``hot_credential``);
+    ``resigned`` is true once the member has resigned its cold credential.
+    """
+
+    cold_credential: str
+    hot_credential: str
+    resigned: bool
+
+
+@dataclass(frozen=True)
 class TxDetail:
     """A transaction as the query API reports it (chapter 35).
 

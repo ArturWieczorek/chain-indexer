@@ -36,6 +36,7 @@ from chainidx.model import (
     AssetDetail,
     Block,
     CertificateRecord,
+    CommitteeMember,
     DRepSummary,
     DRepVote,
     EpochSummary,
@@ -227,6 +228,14 @@ class Store(Protocol):
 
     def drep_votes(self, drep_id: str) -> tuple[DRepVote, ...]:
         """Return the votes a DRep cast, each with the action it refers to."""
+        ...
+
+    def committee_members(self) -> list[CommitteeMember]:
+        """Return the constitutional committee members, from their certificates."""
+        ...
+
+    def committee_member(self, cold_credential: str) -> CommitteeMember | None:
+        """Return one committee member by cold credential, or ``None``."""
         ...
 
     def blocks_in_epoch(self, epoch_no: int, epoch_length: int, limit: int = 200) -> list[Block]:
@@ -1217,6 +1226,34 @@ class SqliteStore:
                 vote=r["vote"],
             )
             for r in rows
+        )
+
+    def committee_members(self) -> list[CommitteeMember]:
+        # A member is any cold credential that authorized a hot key; its current
+        # hot key is the latest such authorization, and it has resigned if a
+        # resignation certificate exists for that cold credential.
+        auths = self._conn.execute(
+            "SELECT subject AS cold, detail AS hot FROM certificate "
+            "WHERE cert_type = 'Committee Hot Key Authorization' ORDER BY id"
+        ).fetchall()
+        latest_hot: dict[str, str] = {}
+        for r in auths:
+            latest_hot[r["cold"]] = r["hot"]
+        resigned = {
+            r["cold"]
+            for r in self._conn.execute(
+                "SELECT DISTINCT subject AS cold FROM certificate "
+                "WHERE cert_type = 'Committee Cold Key Resignation'"
+            ).fetchall()
+        }
+        return [
+            CommitteeMember(cold_credential=cold, hot_credential=hot, resigned=cold in resigned)
+            for cold, hot in sorted(latest_hot.items())
+        ]
+
+    def committee_member(self, cold_credential: str) -> CommitteeMember | None:
+        return next(
+            (m for m in self.committee_members() if m.cold_credential == cold_credential), None
         )
 
     def blocks_in_epoch(self, epoch_no: int, epoch_length: int, limit: int = 200) -> list[Block]:

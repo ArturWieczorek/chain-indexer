@@ -366,6 +366,36 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_committee_page() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    certificates=(
+                        CommitteeAuthHot("cold1", "hot1"),
+                        CommitteeAuthHot("cold2", "hot2"),
+                        CommitteeResignCold("cold2"),
+                    ),
+                ),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    members = {m["cold_credential"]: m for m in api.get("/governance/committee").json()}
+    assert members["cold1"]["hot_credential"] == "hot1"
+    assert members["cold1"]["resigned"] is False
+    assert members["cold2"]["resigned"] is True
+
+    assert api.get("/governance/committee/cold1").json()["hot_credential"] == "hot1"
+    assert api.get("/governance/committee/nope").status_code == 404
+
+
 def test_protocol_parameters_endpoint() -> None:
     store = SqliteStore()
     api = TestClient(create_app(store))
