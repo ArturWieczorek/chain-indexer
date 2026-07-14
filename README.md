@@ -39,6 +39,19 @@ The explorer is a single web page that covers what a professional explorer shows
 
 Everything is clickable and cross-linked, and there is a dark/light theme.
 
+There are **two web pages**, both served by the one running process:
+
+- **The explorer, at `http://127.0.0.1:8000/`** (its internal routes look like
+  `/#/tokens`, `/#/tx/<hash>` - the `#/...` is in-page navigation, not separate
+  pages). This is the browsable database: you look things up and click around
+  history. It reads the REST API.
+- **The live dashboard, at `http://127.0.0.1:8000/live`.** This is a real-time feed:
+  as the node sends blocks, they scroll in here over a WebSocket, with per-transaction
+  detail and a red entry when the chain rolls back. It shows what is happening *now*,
+  rather than letting you browse the past.
+
+Same data, two lenses: `/` to explore, `/live` to watch.
+
 ## What it is (in one picture)
 
 ```
@@ -102,17 +115,24 @@ whole journey of a single block, and which module owns each step.
 ### Reading it back, and the live stream
 
 - **`event.py`** is an event bus. As the follower indexes, it publishes typed events
-  (a block, a delegation, a rollback). Consumers subscribe; today the live view is
-  one, and webhooks are being added.
+  (a block, a transaction, a delegation, a rollback). Consumers subscribe: the live
+  dashboard and the output sinks both read from it.
+- **`patterns.py`** is pure matching logic: `Pattern` (kupo-style watch patterns
+  behind `/matches`) and `EventFilter` (which events a sink cares about).
+- **`webhook.py`** and **`sinks.py`** are the adder-style outputs: a sink is a filter
+  plus an `emit`, and three ship - webhook (HTTP POST), log (console), file (JSONL).
 - **`api.py`** is the REST API (FastAPI): Blockfrost-shaped endpoints over the store,
-  including a kupo-style `/matches/{pattern}` output lookup.
-- **`explorer.py`** serves the browsable web explorer; **`live.py`** adds the `/live`
-  WebSocket page (fed by the event bus) and is also the all-in-one runner that wires
-  the follower, the store, and the server together.
+  plus the kupo-style `/matches/{pattern}`, `/datums/{hash}`, and `/scripts/{hash}`.
+- **`explorer.py`** serves the browsable web explorer (`/`); **`live.py`** adds the
+  real-time `/live` WebSocket page (fed by the event bus) and is also the all-in-one
+  runner that wires the follower, the store, the sinks, and the server together.
 - **`cli.py`** is the `chainidx` command line for one-off queries and node actions.
 - **`localstate.py`**, **`mempoolclient.py`**, **`txsubmitclient.py`** use the other
   mini-protocols to read live ledger state, watch the mempool, and submit
   transactions.
+- Supporting pieces: **`config.py`** (the JSON config), **`network.py`** (slot/epoch
+  and time math from genesis), **`bech32.py`** (human-readable ids), and
+  **`offchain.py`** (optional off-chain pool-metadata fetch).
 
 ### The five mini-protocols (all hand-written)
 
