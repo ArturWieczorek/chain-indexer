@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.1.0] - Explorer search by height and slot
+
+### Added
+
+- API: `GET /blocks/height/{n}` and `GET /blocks/slot/{n}`, plus store methods
+  `get_block_by_number` and `get_block_by_slot`.
+- Explorer: the search box now accepts a block height, `slot:N`, a block or tx
+  hash (resolved automatically), or an address; block heights and slots on the
+  home page are clickable.
+
 ## [1.0.0] - Publish
 
 The complete course: a reorg-aware Cardano chain indexer with a from-scratch

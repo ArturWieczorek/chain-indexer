@@ -77,6 +77,20 @@ def create_app(store: Store) -> FastAPI:
     def blocks(limit: int = 20) -> list[dict[str, Any]]:
         return [_block(b) for b in store.latest_blocks(limit)]
 
+    @app.get("/blocks/height/{height}")
+    def block_by_height(height: int) -> dict[str, Any]:
+        found = store.get_block_by_number(height)
+        if found is None:
+            raise HTTPException(status_code=404, detail="no block at that height")
+        return _block(found)
+
+    @app.get("/blocks/slot/{slot}")
+    def block_by_slot(slot: int) -> dict[str, Any]:
+        found = store.get_block_by_slot(slot)
+        if found is None:
+            raise HTTPException(status_code=404, detail="no block at that slot")
+        return _block(found)
+
     @app.get("/blocks/{block_hash}")
     def block(block_hash: str) -> dict[str, Any]:
         found = store.get_block(block_hash)

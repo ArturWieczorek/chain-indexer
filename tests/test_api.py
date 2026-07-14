@@ -86,6 +86,15 @@ def test_blocks_latest_and_by_hash(client: TestClient) -> None:
     assert client.get("/blocks/nope").status_code == 404
 
 
+def test_blocks_by_height_and_slot(client: TestClient) -> None:
+    by_height = client.get("/blocks/height/1").json()
+    assert by_height["hash"] == "b1"
+    by_slot = client.get("/blocks/slot/10").json()  # block 1 is at slot 10
+    assert by_slot["hash"] == "b1"
+    assert client.get("/blocks/height/999").status_code == 404
+    assert client.get("/blocks/slot/999").status_code == 404
+
+
 def test_blocks_list(client: TestClient) -> None:
     blocks = client.get("/blocks", params={"limit": 5}).json()
     assert [b["hash"] for b in blocks] == ["b2", "b1"]

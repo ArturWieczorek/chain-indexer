@@ -56,6 +56,23 @@ def test_get_block_returns_none_for_an_unknown_hash() -> None:
     store.close()
 
 
+def test_get_block_by_number_and_slot() -> None:
+    store = SqliteStore()
+    store.apply_block(block(7, "b7", "b6"))  # slot 70 (block_no * 10)
+
+    by_number = store.get_block_by_number(7)
+    assert by_number is not None
+    assert by_number.block_hash == "b7"
+
+    by_slot = store.get_block_by_slot(70)
+    assert by_slot is not None
+    assert by_slot.block_hash == "b7"
+
+    assert store.get_block_by_number(999) is None
+    assert store.get_block_by_slot(999) is None
+    store.close()
+
+
 def test_the_tip_is_the_most_recently_applied_block() -> None:
     store = SqliteStore()
     for i, h in enumerate(["b1", "b2", "b3"], start=1):

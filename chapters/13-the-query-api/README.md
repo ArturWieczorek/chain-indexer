@@ -20,6 +20,8 @@ so we borrow its endpoint shapes. Anyone who has used it will find ours familiar
 | `GET /blocks/latest` | the tip block |
 | `GET /blocks?limit=N` | the most recent blocks |
 | `GET /blocks/{hash}` | one block (with its transaction hashes) |
+| `GET /blocks/height/{n}` | the block at a height |
+| `GET /blocks/slot/{n}` | the block at a slot |
 | `GET /txs/{hash}` | a transaction's inputs and outputs |
 | `GET /addresses/{addr}` | an address's balance and unspent outputs |
 | `GET /assets` | native assets currently held |

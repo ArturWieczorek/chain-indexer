@@ -44,6 +44,14 @@ class Store(Protocol):
         """Return the stored block with this hash, or ``None``."""
         ...
 
+    def get_block_by_number(self, block_no: int) -> Block | None:
+        """Return the stored block at this height, or ``None``."""
+        ...
+
+    def get_block_by_slot(self, slot_no: int) -> Block | None:
+        """Return the stored block at this slot, or ``None``."""
+        ...
+
     def tip(self) -> Tip | None:
         """Return the newest stored block as a tip, or ``None`` if empty."""
         ...
@@ -373,6 +381,18 @@ class SqliteStore:
             prev_hash=row["prev_hash"],
             txs=txs,
         )
+
+    def get_block_by_number(self, block_no: int) -> Block | None:
+        row = self._conn.execute(
+            "SELECT hash FROM block WHERE block_no = ? LIMIT 1", (block_no,)
+        ).fetchone()
+        return None if row is None else self.get_block(row["hash"])
+
+    def get_block_by_slot(self, slot_no: int) -> Block | None:
+        row = self._conn.execute(
+            "SELECT hash FROM block WHERE slot_no = ? LIMIT 1", (slot_no,)
+        ).fetchone()
+        return None if row is None else self.get_block(row["hash"])
 
     def tip(self) -> Tip | None:
         row = self._conn.execute(

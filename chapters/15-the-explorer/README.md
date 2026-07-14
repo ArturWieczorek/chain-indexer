@@ -44,9 +44,12 @@ without ever reloading:
 
 A `hashchange` listener re-renders when the fragment changes, and every hash,
 address, and transaction id on the page is a link to another fragment. So clicking
-around never hits the server for HTML - only for JSON. The search box guesses what
-you typed (an address, or a 64-character block hash) and navigates to the right
-fragment.
+around never hits the server for HTML - only for JSON. The search box works out
+what you typed: a plain number is a block **height**, `slot:N` is a **slot**, a
+64-character hex string is a block or transaction hash (resolved by trying the
+block endpoint then the transaction endpoint), and anything else is treated as an
+address. So you can jump straight to block 33 by typing `33` - no need to know its
+hash.
 
 ## What you see
 
