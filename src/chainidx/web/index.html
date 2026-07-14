@@ -716,22 +716,40 @@
           ? `<a href="${esc(p.metadata_url)}" target="_blank" rel="noopener">${esc(p.metadata_url)}</a>`
           : "<span class='muted'>none</span>";
         const series = p.blocks_by_epoch || [];
+        const avg = series.length
+          ? (series.reduce((s, d) => s + d.block_count, 0) / series.length).toFixed(1)
+          : "0";
+        const perf =
+          `<h2>Performance</h2><div class="panel"><div class="kv">` +
+          `<div>lifetime blocks</div><div>${p.blocks_minted}</div>` +
+          `<div>epochs minting</div><div>${series.length}</div>` +
+          `<div>avg blocks / epoch</div><div>${avg}</div></div></div>`;
         const blocksChart = series.length
-          ? `<h2>Blocks per epoch</h2>${lineChart(series, (d) => d.block_count, (v) => `${v} blocks`)}`
+          ? `<h2>Blocks produced per epoch</h2>${lineChart(series, (d) => d.block_count, (v) => `${v} blocks`)}`
           : "";
+        const owners = (p.owners || [])
+          .map((o) => link("account", o, short(o)))
+          .join("<br>") || "<span class='muted'>none</span>";
+        const relays = (p.relays || []).map(esc).join("<br>") || "<span class='muted'>none</span>";
         app.innerHTML =
           `<h2>Stake pool</h2><div class="panel"><div class="kv">` +
-          `<div>pool id</div><div>${esc(p.pool_id)}</div>` +
-          `<div>blocks minted</div><div>${p.blocks_minted}</div>` +
-          `<div>delegators</div><div>${p.delegators}</div>` +
-          `<div>live stake</div><div>${(p.live_stake * 100).toFixed(3)}%</div>` +
-          `<div>saturation</div><div>${(p.saturation * 100).toFixed(1)}%</div>` +
+          `<div>bech32 pool id</div><div class="wrap">${esc(p.pool_id)}</div>` +
+          `<div>pool id (hex)</div><div class="wrap">${esc(p.pool_id_hex || "")}</div>` +
+          `<div>vrf hash</div><div class="wrap">${esc(p.vrf_hash || "") || "-"}</div>` +
+          `<div>reward account</div><div>${p.reward_address ? link("account", p.reward_address, p.reward_address) : "-"}</div>` +
+          `<div>owners</div><div class="wrap">${owners}</div>` +
+          `<div>registered</div><div>${esc(p.registered_time || "-")}</div>` +
           `<div>pledge</div><div class="lovelace">${ada(p.pledge)}</div>` +
           `<div>cost</div><div class="lovelace">${ada(p.cost || 0)}</div>` +
           `<div>margin</div><div>${(p.margin * 100).toFixed(2)}%</div>` +
-          `<div>metadata</div><div class="wrap">${meta}</div>` +
-          `<div>reward address</div><div>${p.reward_address ? link("account", p.reward_address, p.reward_address) : "-"}</div>` +
+          `<div>live stake</div><div>${(p.live_stake * 100).toFixed(3)}%</div>` +
+          `<div>saturation</div><div>${(p.saturation * 100).toFixed(1)}%</div>` +
+          `<div>delegators</div><div>${p.delegators}</div>` +
+          `<div>metadata hash</div><div class="wrap">${esc(p.metadata_hash || "") || "-"}</div>` +
+          `<div>metadata url</div><div class="wrap">${meta}</div>` +
+          `<div>relays</div><div class="wrap">${relays}</div>` +
           `</div></div>` +
+          perf +
           blocksChart +
           ((p.delegators_list || []).length
             ? `<h2>Delegators</h2><div class="panel"><table>` +

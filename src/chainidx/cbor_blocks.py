@@ -233,6 +233,25 @@ def _decode_drep(drep: list[Any]) -> str:
     return "AlwaysAbstain" if kind == 2 else "AlwaysNoConfidence"
 
 
+def _decode_relay(relay: list[Any]) -> str:
+    """A pool relay as a readable ``host[:port]`` (or DNS) string.
+
+    Relays come in three shapes: ``[0, port, ipv4, ipv6]`` (an address),
+    ``[1, port, dns]`` (a DNS name and port), and ``[2, dns]`` (an SRV name).
+    """
+    kind = relay[0]
+    if kind == 0:
+        port = relay[1]
+        ipv4 = relay[2]
+        host = ".".join(str(b) for b in ipv4) if isinstance(ipv4, bytes) else "?"
+        return f"{host}:{port}" if port else host
+    if kind == 1:
+        port = relay[1]
+        dns = relay[2]
+        return f"{dns}:{port}" if port else str(dns)
+    return str(relay[1])  # multi_host_name (an SRV DNS record)
+
+
 def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
     """Decode the Conway certificate list (tx body key 4).
 
@@ -262,11 +281,15 @@ def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
             out.append(
                 PoolRegistration(
                     pool_id=cert[1].hex(),
+                    vrf_hash=cert[2].hex(),
                     pledge=cert[3],
                     cost=cert[4],
                     margin=float(cert[5]),
                     reward_address=cert[6].hex(),
+                    owners=tuple(o.hex() for o in cert[7]),
+                    relays=tuple(_decode_relay(r) for r in cert[8]),
                     metadata_url=url.decode("utf-8", "replace") if isinstance(url, bytes) else url,
+                    metadata_hash=meta[1].hex() if meta else "",
                 )
             )
         elif tag == 4:  # pool retirement: [4, pool_keyhash, epoch]

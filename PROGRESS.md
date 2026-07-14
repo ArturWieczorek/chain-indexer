@@ -53,3 +53,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch47 - CIP-68 asset metadata (v1.29.0)
 - [x] ch48 - Richer pool detail (v1.30.0)
 - [x] ch49 - Mint transactions (v1.31.0)
+- [x] ch50 - Full pool on-chain details (v1.32.0)

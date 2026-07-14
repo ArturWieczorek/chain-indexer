@@ -205,13 +205,21 @@ def test_decode_pool_registration_cost_and_metadata() -> None:
         [],
         ["https://example/pool.json", b"\x44" * 32],
     ]
+    cert[7] = [b"\x55" * 28, b"\x66" * 28]  # two owners
+    cert[8] = [[0, 3001, bytes([1, 2, 3, 4]), None], [1, 3001, "relay.example"], [2, "srv.example"]]
     (pool,) = _decode_certificates([cert])
     assert isinstance(pool, PoolRegistration)
     assert pool.cost == 340_000_000
     assert pool.metadata_url == "https://example/pool.json"
-    # A pool with no metadata anchor (null) has an empty url.
+    assert pool.vrf_hash == "22" * 32
+    assert pool.metadata_hash == "44" * 32
+    assert pool.owners == ("55" * 28, "66" * 28)
+    assert pool.relays == ("1.2.3.4:3001", "relay.example:3001", "srv.example")
+    # A pool with no metadata anchor (null) has an empty url and hash.
     cert[9] = None
-    assert _decode_certificates([cert])[0].metadata_url == ""
+    reg = _decode_certificates([cert])[0]
+    assert reg.metadata_url == ""
+    assert reg.metadata_hash == ""
 
 
 def test_decode_withdrawals() -> None:

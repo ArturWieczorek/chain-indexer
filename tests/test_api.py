@@ -146,6 +146,31 @@ def test_pool_detail_cost_metadata_and_blocks_chart() -> None:
     assert by_epoch == {0: 1, 1: 1}  # one block minted in each of epochs 0 and 1
 
 
+def test_pool_detail_on_chain_details() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration(
+        "poolY",
+        1000,
+        0.05,
+        "e0" + "11" * 28,
+        vrf_hash="ab" * 32,
+        metadata_hash="cd" * 32,
+        owners=("77" * 28,),
+        relays=("relay.example:3001",),
+    )
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", issuer="poolY", txs=(Tx("t1", certificates=(reg,)),))
+    )
+    net = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
+    d = TestClient(create_app(store, net)).get("/pools/poolY").json()
+    assert d["pool_id_hex"] == "poolY"  # a non-bech32 test id passes through
+    assert d["vrf_hash"] == "ab" * 32
+    assert d["metadata_hash"] == "cd" * 32
+    assert d["owners"][0].startswith("stake_test1")  # owner shown as a stake address
+    assert d["relays"] == ["relay.example:3001"]
+    assert "registered_time" in d  # derived from the registration block's slot
+
+
 def test_stake_display_helper() -> None:
     from chainidx.api import _stake_display
 

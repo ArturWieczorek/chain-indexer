@@ -193,6 +193,11 @@ def _pool(summary: PoolSummary) -> dict[str, Any]:
         "saturation": summary.saturation,
         "cost": summary.cost,
         "metadata_url": summary.metadata_url,
+        "pool_id_hex": _to_hex(summary.pool_id, "pool"),
+        "vrf_hash": summary.vrf_hash,
+        "metadata_hash": summary.metadata_hash,
+        "owners": [_stake_display(o) for o in summary.owners],
+        "relays": list(summary.relays),
     }
 
 
@@ -438,6 +443,8 @@ def create_app(
         out["blocks_by_epoch"] = [
             {"epoch_no": e, "block_count": n} for e, n in store.pool_blocks_by_epoch(key, length)
         ]
+        if network is not None and summary.registered_slot >= 0:
+            out["registered_time"] = network.slot_time(summary.registered_slot)
         return out
 
     @app.get("/accounts/{stake_address}")

@@ -25,6 +25,7 @@ that large sums cannot overflow; chapter 18 discusses the difference.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Sequence
 from typing import Any, Protocol
@@ -619,6 +620,17 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "  asset_name TEXT    NOT NULL,"
             "  quantity   INTEGER NOT NULL"
             ")",
+        ),
+    ),
+    (
+        17,
+        (
+            # The rest of a pool's on-chain registration details (chapter 50):
+            # VRF key hash, metadata hash, and JSON arrays of owners and relays.
+            "ALTER TABLE pool_registration ADD COLUMN vrf_hash TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE pool_registration ADD COLUMN metadata_hash TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE pool_registration ADD COLUMN owners TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE pool_registration ADD COLUMN relays TEXT NOT NULL DEFAULT '[]'",
         ),
     ),
 ]
@@ -1260,8 +1272,11 @@ class SqliteStore:
 
     def _pool_summary(self, pool_id: str) -> PoolSummary:
         reg = self._conn.execute(
-            "SELECT pledge, margin, reward_addr, cost, metadata_url FROM pool_registration "
-            "WHERE pool_id = ? ORDER BY tx_id DESC LIMIT 1",
+            "SELECT pr.pledge AS pledge, pr.margin AS margin, pr.reward_addr AS reward_addr, "
+            "pr.cost AS cost, pr.metadata_url AS metadata_url, pr.vrf_hash AS vrf_hash, "
+            "pr.metadata_hash AS metadata_hash, pr.owners AS owners, pr.relays AS relays, "
+            "b.slot_no AS reg_slot FROM pool_registration pr JOIN block b ON b.id = pr.block_id "
+            "WHERE pr.pool_id = ? ORDER BY pr.tx_id DESC LIMIT 1",
             (pool_id,),
         ).fetchone()
         blocks = self._conn.execute(
@@ -1289,6 +1304,11 @@ class SqliteStore:
             saturation=saturation,
             cost=reg["cost"] if reg is not None else 0,
             metadata_url=reg["metadata_url"] if reg is not None else "",
+            vrf_hash=reg["vrf_hash"] if reg is not None else "",
+            metadata_hash=reg["metadata_hash"] if reg is not None else "",
+            owners=tuple(json.loads(reg["owners"])) if reg is not None else (),
+            relays=tuple(json.loads(reg["relays"])) if reg is not None else (),
+            registered_slot=reg["reg_slot"] if reg is not None else -1,
         )
 
     def pool_summaries(self) -> list[PoolSummary]:

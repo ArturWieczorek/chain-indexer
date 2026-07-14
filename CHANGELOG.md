@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.32.0] - Full pool on-chain details
+
+### Added
+
+- Pool registration decoding of VRF hash, owners, relays, and metadata hash
+  (`_decode_relay`); `PoolRegistration`/`PoolSummary` fields; migration 17.
+- `/pools/{id}` returns the full on-chain details (hex id, VRF, owners as stake
+  addresses, relays, metadata hash) and a registration time; the pool page shows
+  them plus a performance summary (lifetime blocks, avg blocks per epoch).
+
 ## [1.31.0] - Mint transactions
 
 ### Added

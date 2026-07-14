@@ -190,6 +190,10 @@ class PoolRegistration:
     reward_address: str
     cost: int = 0
     metadata_url: str = ""  # off-chain metadata anchor (name/ticker live there)
+    vrf_hash: str = ""
+    metadata_hash: str = ""
+    owners: tuple[str, ...] = ()  # stake credentials of the pool's owners
+    relays: tuple[str, ...] = ()  # the pool's relays, as host[:port] strings
 
 
 @dataclass(frozen=True)
@@ -450,6 +454,11 @@ class PoolSummary:
     saturation: float = 0.0  # live_stake relative to the ideal 1/n_opt share
     cost: int = 0  # the pool's fixed cost per epoch (chapter 48)
     metadata_url: str = ""  # off-chain metadata anchor (chapter 48)
+    vrf_hash: str = ""  # chapter 50: full on-chain details
+    metadata_hash: str = ""
+    owners: tuple[str, ...] = ()
+    relays: tuple[str, ...] = ()
+    registered_slot: int = -1  # slot of the latest registration, or -1 if unknown
 
 
 @dataclass(frozen=True)
