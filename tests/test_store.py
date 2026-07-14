@@ -201,6 +201,22 @@ def test_policy_detail_groups_assets_under_a_policy() -> None:
     store.close()
 
 
+def test_epoch_stats_totals_blocks_txs_and_fees() -> None:
+    store = SqliteStore()
+    # Epoch 0 (slot 10): one block, two txs paying 100 + 50 in fees.
+    store.apply_block(block(1, "b1", "genesis", txs=(Tx("t1", fee=100), Tx("t2", fee=50))))
+    # Epoch 1 (slot 110): one block, one tx paying 200.
+    store.apply_block(Block(11, 110, "b11", "b1", txs=(Tx("t3", fee=200),)))
+    stats = store.epoch_stats(100)
+    assert stats[0].epoch_no == 1  # newest epoch first
+    by_epoch = {s.epoch_no: s for s in stats}
+    assert by_epoch[0].block_count == 1
+    assert by_epoch[0].tx_count == 2
+    assert by_epoch[0].fee_total == 150
+    assert by_epoch[1].fee_total == 200
+    store.close()
+
+
 def test_blocks_in_epoch_lists_blocks_newest_first() -> None:
     store = SqliteStore()
     for i in range(1, 13):  # block i at slot i*10; epoch_length 100

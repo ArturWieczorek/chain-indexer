@@ -42,6 +42,20 @@ class AssetDetail:
 
 
 @dataclass(frozen=True)
+class EpochStats:
+    """Per-epoch totals for the analytics time-series charts (chapter 42).
+
+    Like ``EpochSummary`` but with the total fees paid, so transactions, blocks,
+    and fees can be plotted over time.
+    """
+
+    epoch_no: int
+    block_count: int
+    tx_count: int
+    fee_total: int
+
+
+@dataclass(frozen=True)
 class AddressBalance:
     """An address and its unspent balance, for the top-addresses ranking (ch40)."""
 

@@ -317,10 +317,38 @@
           `<tr><th>Asset</th><th>Quantity</th><th>Holders</th></tr>${rows}</table></div>`;
       }
 
+      // A small inline-SVG line/area chart over per-epoch points (oldest first).
+      // valueFn picks the series; fmt formats the tooltip value.
+      function lineChart(data, valueFn, fmt) {
+        if (!data.length) return `<div class="panel muted">no data</div>`;
+        const H = 150;
+        const W = Math.max(320, data.length * 14);
+        const pad = 26;
+        const max = Math.max(1, ...data.map(valueFn));
+        const x = (i) => pad + (i * (W - pad - 8)) / Math.max(1, data.length - 1);
+        const y = (v) => H - 20 - (v / max) * (H - 34);
+        const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(valueFn(d)).toFixed(1)}`).join(" ");
+        const area = `${x(0).toFixed(1)},${H - 20} ${pts} ${x(data.length - 1).toFixed(1)},${H - 20}`;
+        const dots = data
+          .map(
+            (d, i) =>
+              `<circle cx="${x(i).toFixed(1)}" cy="${y(valueFn(d)).toFixed(1)}" r="2" fill="var(--accent)">` +
+              `<title>epoch ${d.epoch_no}: ${fmt(valueFn(d))}</title></circle>`
+          )
+          .join("");
+        return (
+          `<div class="panel" style="overflow-x:auto">` +
+          `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">` +
+          `<polygon points="${area}" fill="var(--accent)" opacity="0.12"></polygon>` +
+          `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"></polyline>` +
+          `${dots}</svg></div>`
+        );
+      }
+
       async function analyticsPage() {
-        const [s, epochs, topAddr, topAcct] = await Promise.all([
+        const [s, series, topAddr, topAcct] = await Promise.all([
           api("/analytics/summary"),
-          api("/epochs"),
+          api("/analytics/timeseries?limit=40"),
           api("/top/addresses?limit=10"),
           api("/top/accounts?limit=10"),
         ]);
@@ -333,24 +361,11 @@
         ]
           .map(([l, n]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`)
           .join("");
-        // Blocks per epoch, oldest to newest, last 40 epochs.
-        const data = epochs.slice(0, 40).reverse();
-        const max = Math.max(1, ...data.map((e) => e.block_count));
-        const H = 140;
-        const step = 16;
-        const width = Math.max(320, data.length * step);
-        const bars = data
-          .map((e, i) => {
-            const h = (e.block_count / max) * (H - 24);
-            return (
-              `<rect x="${i * step + 2}" y="${H - 20 - h}" width="12" height="${h}">` +
-              `<title>epoch ${e.epoch_no}: ${e.block_count} blocks, ${e.tx_count} txs</title></rect>`
-            );
-          })
-          .join("");
-        const chart = data.length
-          ? `<svg viewBox="0 0 ${width} ${H}" style="width:100%;height:auto" class="chart">${bars}</svg>`
-          : `<span class="muted">no epoch data</span>`;
+        // Time series come newest-first; charts read oldest to newest.
+        const data = series.slice().reverse();
+        const txChart = lineChart(data, (d) => d.tx_count, (v) => `${v} txs`);
+        const blockChart = lineChart(data, (d) => d.block_count, (v) => `${v} blocks`);
+        const feeChart = lineChart(data, (d) => d.fee_total, (v) => ada(v));
         const addrRows = topAddr.length
           ? topAddr
               .map(
@@ -371,7 +386,9 @@
           : `<tr><td colspan="2" class="muted">no staking accounts</td></tr>`;
         app.innerHTML =
           `<h2>Network</h2><div class="tiles">${tiles}</div>` +
-          `<h2>Blocks per epoch</h2><div class="panel" style="overflow-x:auto">${chart}</div>` +
+          `<h2>Transactions per epoch</h2>${txChart}` +
+          `<h2>Blocks per epoch</h2>${blockChart}` +
+          `<h2>Fees per epoch</h2>${feeChart}` +
           `<h2>Top addresses</h2><div class="panel"><table>` +
           `<tr><th>Address</th><th>Balance</th></tr>${addrRows}</table></div>` +
           `<h2>Top staking accounts</h2><div class="panel"><table>` +

@@ -502,6 +502,22 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
             "governance_actions": len(store.governance_actions()),
         }
 
+    @app.get("/analytics/timeseries")
+    def analytics_timeseries(limit: int = 60) -> list[dict[str, Any]]:
+        if network is None:
+            return []
+        points = store.epoch_stats(network.epoch_length, limit)
+        return [
+            {
+                "epoch_no": p.epoch_no,
+                "block_count": p.block_count,
+                "tx_count": p.tx_count,
+                "fee_total": p.fee_total,
+                "time": network.epoch_start_time(p.epoch_no),
+            }
+            for p in points
+        ]
+
     @app.get("/network")
     def network_state() -> dict[str, Any]:
         if network is None:

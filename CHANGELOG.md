@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.24.0] - Analytics time series
+
+### Added
+
+- `EpochStats` model and `store.epoch_stats` (per-epoch block, transaction, and
+  fee totals).
+- `/analytics/timeseries`; a reusable `lineChart` helper and Transactions /
+  Blocks / Fees per-epoch charts on the Analytics page (replacing the single bar
+  chart).
+
 ## [1.23.0] - Transactions section
 
 ### Added

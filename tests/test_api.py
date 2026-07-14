@@ -368,6 +368,20 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_analytics_timeseries() -> None:
+    store = SqliteStore()
+    # No network configured -> no time-series.
+    assert TestClient(create_app(store)).get("/analytics/timeseries").json() == []
+
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=(Tx("t1", fee=100),)))
+    net = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
+    ts = TestClient(create_app(store, net)).get("/analytics/timeseries").json()
+    assert ts[0]["epoch_no"] == 0
+    assert ts[0]["tx_count"] == 1
+    assert ts[0]["fee_total"] == 100
+    assert "time" in ts[0]
+
+
 def test_recent_transactions(client: TestClient) -> None:
     txs = client.get("/transactions").json()
     # Newest first: tx2 (block 2), then tx1 (block 1).

@@ -40,6 +40,7 @@ from chainidx.model import (
     CommitteeMember,
     DRepSummary,
     DRepVote,
+    EpochStats,
     EpochSummary,
     GovActionProposal,
     GovActionSummary,
@@ -116,6 +117,10 @@ class Store(Protocol):
 
     def epoch_summary(self, epoch_no: int, epoch_length: int) -> EpochSummary | None:
         """Return the aggregate for one epoch, or ``None`` if it has no blocks."""
+        ...
+
+    def epoch_stats(self, epoch_length: int, limit: int = 60) -> list[EpochStats]:
+        """Return per-epoch block/tx/fee totals for analytics, newest epoch first."""
         ...
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
@@ -811,6 +816,27 @@ class SqliteStore:
             start_slot=row["start_slot"],
             end_slot=row["end_slot"],
         )
+
+    def epoch_stats(self, epoch_length: int, limit: int = 60) -> list[EpochStats]:
+        # Left-join tx to block so empty epochs still count their blocks; a
+        # DISTINCT block count avoids the join inflating it, and the fee sum comes
+        # from the tx rows.
+        rows = self._conn.execute(
+            "SELECT b.slot_no / ? AS epoch_no, COUNT(DISTINCT b.id) AS blocks, "
+            "COUNT(t.id) AS txs, COALESCE(SUM(t.fee), 0) AS fees "
+            "FROM block b LEFT JOIN tx t ON t.block_id = b.id "
+            "GROUP BY b.slot_no / ? ORDER BY epoch_no DESC LIMIT ?",
+            (epoch_length, epoch_length, limit),
+        ).fetchall()
+        return [
+            EpochStats(
+                epoch_no=r["epoch_no"],
+                block_count=r["blocks"],
+                tx_count=r["txs"],
+                fee_total=int(r["fees"]),
+            )
+            for r in rows
+        ]
 
     def _assets_of_output(self, tx_out_id: int) -> tuple[Asset, ...]:
         rows = self._conn.execute(
