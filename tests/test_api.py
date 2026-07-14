@@ -262,6 +262,11 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     assets = client.get("/assets").json()
     assert assets == [{"policy_id": "pol", "asset_name": "TOK", "quantity": 3}]
 
+    detail = client.get("/assets/pol/TOK").json()
+    assert detail["quantity"] == 3
+    assert detail["holders"] == 1
+    assert client.get("/assets/pol/MISSING").status_code == 404
+
     pools = client.get("/pools").json()
     assert len(pools) == 1
     assert pools[0]["pool_id"] == "pool1"

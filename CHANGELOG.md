@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.13.0] - Tokens
+
+### Added
+
+- `AssetDetail` + `store.asset_detail`; `/assets/{policy_id}/{asset_name}` and a
+  Tokens section in the explorer (list + per-asset detail with holder count).
+
 ## [1.12.0] - Analytics
 
 ### Added

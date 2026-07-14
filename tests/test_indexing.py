@@ -71,6 +71,30 @@ def test_spending_an_output_removes_it_from_the_balance() -> None:
     store.close()
 
 
+def test_asset_detail_totals_quantity_and_holders() -> None:
+    store = SqliteStore()
+    token = Asset("pol", "TOK", 5)
+    store.apply_block(
+        blk(
+            1,
+            "b1",
+            "genesis",
+            (
+                Tx(
+                    "tx1",
+                    outputs=(TxOut("alice", 1, assets=(token,)), TxOut("bob", 1, assets=(token,))),
+                ),
+            ),
+        )
+    )
+    detail = store.asset_detail("pol", "TOK")
+    assert detail is not None
+    assert detail.quantity == 10  # 5 on each output
+    assert detail.holders == 2  # alice and bob
+    assert store.asset_detail("pol", "MISSING") is None
+    store.close()
+
+
 def test_native_assets_are_indexed_on_the_output() -> None:
     store = SqliteStore()
     token = Asset(policy_id="pol1", asset_name="GOLD", quantity=7)

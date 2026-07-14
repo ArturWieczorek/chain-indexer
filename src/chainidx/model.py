@@ -32,6 +32,16 @@ class Asset:
 
 
 @dataclass(frozen=True)
+class AssetDetail:
+    """A native asset with its total held quantity and number of holders (ch31)."""
+
+    policy_id: str
+    asset_name: str
+    quantity: int
+    holders: int
+
+
+@dataclass(frozen=True)
 class TxOut:
     """A transaction output: value sent to an address.
 

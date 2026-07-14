@@ -237,6 +237,18 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
     def assets() -> list[dict[str, Any]]:
         return [_asset(a) for a in store.assets()]
 
+    @app.get("/assets/{policy_id}/{asset_name}")
+    def asset(policy_id: str, asset_name: str) -> dict[str, Any]:
+        detail = store.asset_detail(policy_id, asset_name)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="asset not found")
+        return {
+            "policy_id": detail.policy_id,
+            "asset_name": detail.asset_name,
+            "quantity": detail.quantity,
+            "holders": detail.holders,
+        }
+
     @app.get("/pools")
     def pools() -> list[dict[str, Any]]:
         return [_pool(p) for p in store.pool_summaries()]

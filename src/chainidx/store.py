@@ -33,6 +33,7 @@ from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
     AccountState,
     Asset,
+    AssetDetail,
     Block,
     DRepSummary,
     EpochSummary,
@@ -118,6 +119,10 @@ class Store(Protocol):
 
     def assets(self) -> tuple[Asset, ...]:
         """Return the native assets currently held in unspent outputs."""
+        ...
+
+    def asset_detail(self, policy_id: str, asset_name: str) -> AssetDetail | None:
+        """Return one asset's total held quantity and holder count, or ``None``."""
         ...
 
     def pools(self) -> tuple[str, ...]:
@@ -760,6 +765,22 @@ class SqliteStore:
         return tuple(
             Asset(policy_id=r["policy_id"], asset_name=r["asset_name"], quantity=int(r["qty"]))
             for r in rows
+        )
+
+    def asset_detail(self, policy_id: str, asset_name: str) -> AssetDetail | None:
+        row = self._conn.execute(
+            "SELECT SUM(m.quantity) AS qty, COUNT(DISTINCT o.address) AS holders "
+            "FROM ma_tx_out m JOIN tx_out o ON o.id = m.tx_out_id "
+            "WHERE m.policy_id = ? AND m.asset_name = ? AND o.consumed_by_tx_id IS NULL",
+            (policy_id, asset_name),
+        ).fetchone()
+        if row is None or row["qty"] is None:
+            return None
+        return AssetDetail(
+            policy_id=policy_id,
+            asset_name=asset_name,
+            quantity=int(row["qty"]),
+            holders=int(row["holders"]),
         )
 
     def pools(self) -> tuple[str, ...]:

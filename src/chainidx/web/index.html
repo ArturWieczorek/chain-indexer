@@ -110,6 +110,7 @@
         <a href="#/epochs">Epochs</a>
         <a href="#/pools">Pools</a>
         <a href="#/governance">Governance</a>
+        <a href="#/tokens">Tokens</a>
         <a href="#/analytics">Analytics</a>
       </nav>
       <input id="search" placeholder="Search: block height (e.g. 33), slot:N, block/tx hash, or address" />
@@ -214,6 +215,34 @@
           `<tr><th>Pool</th><th>Blocks</th><th>Delegators</th><th>Live stake</th>` +
           `<th>Saturation</th><th>Margin</th></tr>` +
           `${rows}</table></div>`;
+      }
+
+      async function tokensPage() {
+        const assets = await api("/assets");
+        if (!assets.length) {
+          app.innerHTML = `<div class="panel muted">No native tokens in circulation.</div>`;
+          return;
+        }
+        const rows = assets
+          .map(
+            (a) =>
+              `<tr><td class="wrap">${link("asset/" + a.policy_id, a.asset_name, esc(a.asset_name) || "(no name)")}</td>` +
+              `<td class="wrap">${esc(short(a.policy_id))}</td><td>${a.quantity}</td></tr>`
+          )
+          .join("");
+        app.innerHTML =
+          `<h2>Native tokens</h2><div class="panel"><table>` +
+          `<tr><th>Asset</th><th>Policy</th><th>Quantity</th></tr>${rows}</table></div>`;
+      }
+
+      async function assetPage(policyId, assetName) {
+        const a = await api(`/assets/${policyId}/${assetName}`);
+        app.innerHTML =
+          `<h2>Asset</h2><div class="panel"><div class="kv">` +
+          `<div>name</div><div>${esc(a.asset_name) || "(no name)"}</div>` +
+          `<div>policy</div><div>${esc(a.policy_id)}</div>` +
+          `<div>quantity</div><div>${a.quantity}</div>` +
+          `<div>holders</div><div>${a.holders}</div></div></div>`;
       }
 
       async function analyticsPage() {
@@ -438,6 +467,8 @@
           else if (parts[0] === "governance") await governancePage();
           else if (parts[0] === "gov" && parts[1]) await govDetail(parts[1]);
           else if (parts[0] === "account" && parts[1]) await accountPage(parts[1]);
+          else if (parts[0] === "tokens") await tokensPage();
+          else if (parts[0] === "asset" && parts[1] && parts[2]) await assetPage(parts[1], parts[2]);
           else if (parts[0] === "analytics") await analyticsPage();
           else if (parts[0] === "height" && parts[1]) await byHeight(parts[1]);
           else if (parts[0] === "slot" && parts[1]) await bySlot(parts[1]);
