@@ -35,6 +35,7 @@ from chainidx.model import (
     Asset,
     AssetDetail,
     Block,
+    CertificateRecord,
     DRepSummary,
     DRepVote,
     EpochSummary,
@@ -204,6 +205,16 @@ class Store(Protocol):
 
     def blocks_in_epoch(self, epoch_no: int, epoch_length: int, limit: int = 200) -> list[Block]:
         """Return the blocks that fall in an epoch, newest first."""
+        ...
+
+    def certificates(
+        self, cert_type: str | None = None, limit: int = 200
+    ) -> list[CertificateRecord]:
+        """Return recorded certificates, newest first, optionally by category."""
+        ...
+
+    def certificate_summary(self) -> list[tuple[str, int]]:
+        """Return ``(cert_type, count)`` pairs across all recorded certificates."""
         ...
 
     def close(self) -> None:
@@ -425,6 +436,24 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_tx_out_stake ON tx_out (stake_cred)",
         ),
     ),
+    (
+        9,
+        (
+            # A flat record of every certificate, for the Certificates browser
+            # (chapter 34). The typed tables above still back the pool/DRep/account
+            # queries; this one exists so every certificate kind is browsable in
+            # one place, keyed by a human category label.
+            "CREATE TABLE certificate ("
+            "  id        INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  block_id  INTEGER NOT NULL REFERENCES block(id),"
+            "  tx_id     INTEGER NOT NULL REFERENCES tx(id),"
+            "  cert_type TEXT    NOT NULL,"
+            "  subject   TEXT    NOT NULL,"
+            "  detail    TEXT    NOT NULL"
+            ")",
+            "CREATE INDEX idx_certificate_type ON certificate (cert_type)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -440,6 +469,7 @@ _ROLLBACK_TABLES: tuple[str, ...] = (
     "pool_retirement",
     "drep_registration",
     "drep_deregistration",
+    "certificate",
     "gov_action_proposal",
     "voting_procedure",
     "tx",
@@ -1030,6 +1060,37 @@ class SqliteStore:
         ).fetchall()
         blocks = [self.get_block(r["hash"]) for r in rows]
         return [b for b in blocks if b is not None]
+
+    def certificates(
+        self, cert_type: str | None = None, limit: int = 200
+    ) -> list[CertificateRecord]:
+        sql = (
+            "SELECT c.cert_type AS cert_type, c.subject AS subject, c.detail AS detail, "
+            "t.hash AS tx_hash FROM certificate c JOIN tx t ON t.id = c.tx_id "
+        )
+        params: tuple[object, ...]
+        if cert_type is None:
+            sql += "ORDER BY c.id DESC LIMIT ?"
+            params = (limit,)
+        else:
+            sql += "WHERE c.cert_type = ? ORDER BY c.id DESC LIMIT ?"
+            params = (cert_type, limit)
+        rows = self._conn.execute(sql, params).fetchall()
+        return [
+            CertificateRecord(
+                cert_type=r["cert_type"],
+                subject=r["subject"],
+                detail=r["detail"],
+                tx_hash=r["tx_hash"],
+            )
+            for r in rows
+        ]
+
+    def certificate_summary(self) -> list[tuple[str, int]]:
+        rows = self._conn.execute(
+            "SELECT cert_type, COUNT(*) AS n FROM certificate GROUP BY cert_type ORDER BY cert_type"
+        ).fetchall()
+        return [(r["cert_type"], r["n"]) for r in rows]
 
     def close(self) -> None:
         self._conn.close()

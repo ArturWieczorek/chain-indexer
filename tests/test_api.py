@@ -8,15 +8,22 @@ from chainidx.model import (
     AccountState,
     Asset,
     Block,
+    CommitteeAuthHot,
+    CommitteeResignCold,
+    DRepDeregistration,
     DRepRegistration,
+    DRepUpdate,
     GovActionProposal,
     GovVote,
     PoolRegistration,
+    PoolRetirement,
     StakeDelegation,
+    StakeDeregistration,
     StakeRegistration,
     Tx,
     TxIn,
     TxOut,
+    VoteDelegation,
 )
 from chainidx.network import NetworkParams
 from chainidx.store import SqliteStore
@@ -189,6 +196,58 @@ def test_epochs_are_empty_without_network(client: TestClient) -> None:
     assert client.get("/epochs/0").status_code == 404
     assert client.get("/epochs/0/blocks").status_code == 404
     assert client.get("/network").json()["available"] is False
+
+
+def test_certificates_browser_lists_every_category() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    certificates=(
+                        StakeRegistration("s1"),
+                        StakeDeregistration("s2"),
+                        StakeDelegation("s3", "poolA"),
+                        VoteDelegation("s4", "drepX"),
+                        PoolRegistration("poolB", 1000, 0.02, "r1"),
+                        PoolRetirement("poolC", 300),
+                        DRepRegistration("d1", 500),
+                        DRepDeregistration("d2"),
+                        DRepUpdate("d3"),
+                        CommitteeAuthHot("cold1", "hot1"),
+                        CommitteeResignCold("cold2"),
+                    ),
+                ),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+
+    summary = {c["cert_type"]: c["count"] for c in api.get("/certificates/summary").json()}
+    assert summary["Delegation"] == 1
+    assert summary["Vote Delegation"] == 1
+    assert summary["Committee Hot Key Authorization"] == 1
+    assert summary["Committee Cold Key Resignation"] == 1
+    assert summary["DRep Update"] == 1
+    assert len(summary) == 11  # every category present
+
+    all_certs = api.get("/certificates").json()
+    assert len(all_certs) == 11
+    assert all(c["tx_hash"] == "tx1" for c in all_certs)
+
+    # Filtering by category returns just that category, with its detail field.
+    retire = api.get("/certificates", params={"cert_type": "Pool Deregistration"}).json()
+    assert len(retire) == 1
+    assert retire[0]["subject"] == "poolC"
+    assert retire[0]["detail"] == "epoch 300"
+
+    # An empty category simply returns nothing.
+    assert api.get("/certificates", params={"cert_type": "Nonexistent"}).json() == []
 
 
 def test_epochs_and_network_with_params() -> None:

@@ -20,6 +20,7 @@ from chainidx import bech32
 from chainidx.model import (
     Asset,
     Block,
+    CertificateRecord,
     DRepSummary,
     DRepVote,
     EpochSummary,
@@ -162,6 +163,25 @@ def _drep_vote(vote: DRepVote) -> dict[str, Any]:
         "gov_action_id": vote.gov_action_id,
         "action_type": vote.action_type,
         "vote": vote.vote,
+    }
+
+
+def _cert_subject_display(cert_type: str, subject: str) -> str:
+    """A friendlier subject: bech32 for pools and stake keys, hex otherwise."""
+    if cert_type.startswith("Pool"):
+        return _pool_display(subject)
+    if cert_type.startswith(("Stake Key", "Delegation", "Vote Delegation")):
+        return _stake_display(subject)
+    return subject
+
+
+def _certificate(record: CertificateRecord) -> dict[str, Any]:
+    return {
+        "cert_type": record.cert_type,
+        "subject": record.subject,
+        "subject_display": _cert_subject_display(record.cert_type, record.subject),
+        "detail": record.detail,
+        "tx_hash": record.tx_hash,
     }
 
 
@@ -316,6 +336,14 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         out = _drep(match)
         out["votes"] = [_drep_vote(v) for v in store.drep_votes(drep_id)]
         return out
+
+    @app.get("/certificates")
+    def certificates(cert_type: str | None = None) -> list[dict[str, Any]]:
+        return [_certificate(c) for c in store.certificates(cert_type)]
+
+    @app.get("/certificates/summary")
+    def certificate_summary() -> list[dict[str, Any]]:
+        return [{"cert_type": t, "count": n} for t, n in store.certificate_summary()]
 
     @app.get("/epochs")
     def epochs() -> list[dict[str, Any]]:

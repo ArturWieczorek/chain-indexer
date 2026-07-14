@@ -31,13 +31,18 @@ import sqlite3
 from typing import Protocol
 
 from chainidx.model import (
+    Certificate,
+    CommitteeAuthHot,
+    DRepDeregistration,
     DRepRegistration,
+    DRepUpdate,
     PoolRegistration,
     PoolRetirement,
     StakeDelegation,
     StakeDeregistration,
     StakeRegistration,
     Tx,
+    VoteDelegation,
 )
 
 
@@ -111,16 +116,54 @@ class InputIndexer:
             )
 
 
-class CertIndexer:
-    """Records Shelley staking and pool certificates found in a transaction.
+def certificate_fields(cert: Certificate) -> tuple[str, str, str]:
+    """Map a certificate to ``(category label, subject id, detail)``.
 
-    Each certificate kind lands in its own table. We dispatch on the certificate
-    type; because the certificate classes are a closed union, the type checker
-    makes sure we handle every one of them.
+    The label is the human category the Certificates browser groups by; the
+    subject is the primary id the certificate acts on; the detail is a secondary
+    field worth showing (the pool for a delegation, the epoch for a retirement).
+    """
+    if isinstance(cert, StakeRegistration):
+        return "Stake Key Registration", cert.stake_address, ""
+    if isinstance(cert, StakeDeregistration):
+        return "Stake Key Deregistration", cert.stake_address, ""
+    if isinstance(cert, StakeDelegation):
+        return "Delegation", cert.stake_address, cert.pool_id
+    if isinstance(cert, VoteDelegation):
+        return "Vote Delegation", cert.stake_address, cert.drep
+    if isinstance(cert, PoolRegistration):
+        return "Pool Registration", cert.pool_id, f"pledge {cert.pledge}, margin {cert.margin}"
+    if isinstance(cert, PoolRetirement):
+        return "Pool Deregistration", cert.pool_id, f"epoch {cert.retiring_epoch}"
+    if isinstance(cert, DRepRegistration):
+        return "DRep Registration", cert.drep_id, f"deposit {cert.deposit}"
+    if isinstance(cert, DRepDeregistration):
+        return "DRep Deregistration", cert.drep_id, ""
+    if isinstance(cert, DRepUpdate):
+        return "DRep Update", cert.drep_id, ""
+    if isinstance(cert, CommitteeAuthHot):
+        return "Committee Hot Key Authorization", cert.cold_credential, cert.hot_credential
+    return "Committee Cold Key Resignation", cert.cold_credential, ""
+
+
+class CertIndexer:
+    """Records certificates found in a transaction.
+
+    Every certificate is recorded in the flat ``certificate`` table (so the
+    Certificates browser can list them by category). The kinds that also back
+    other pages - pools, DReps, accounts - additionally land in their own typed
+    table. The four Conway-only kinds without a dedicated page (vote delegation,
+    DRep update, and the two committee certificates) live only in the flat table.
     """
 
     def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
         for cert in tx.certificates:
+            cert_type, subject, detail = certificate_fields(cert)
+            conn.execute(
+                "INSERT INTO certificate (block_id, tx_id, cert_type, subject, detail) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (block_id, tx_db_id, cert_type, subject, detail),
+            )
             if isinstance(cert, StakeRegistration):
                 conn.execute(
                     "INSERT INTO stake_registration (block_id, tx_id, addr) VALUES (?, ?, ?)",
@@ -162,11 +205,13 @@ class CertIndexer:
                     "VALUES (?, ?, ?, ?)",
                     (block_id, tx_db_id, cert.drep_id, cert.deposit),
                 )
-            else:  # DRepDeregistration - the type checker knows this is the last case
+            elif isinstance(cert, DRepDeregistration):
                 conn.execute(
                     "INSERT INTO drep_deregistration (block_id, tx_id, drep_id) VALUES (?, ?, ?)",
                     (block_id, tx_db_id, cert.drep_id),
                 )
+            # Vote delegation, DRep update, and the committee certificates have no
+            # dedicated table yet; the flat certificate row above is enough.
 
 
 class GovIndexer:

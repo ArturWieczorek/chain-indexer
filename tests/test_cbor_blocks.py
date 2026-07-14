@@ -11,12 +11,24 @@ from typing import cast
 
 import cbor2
 
-from chainidx.cbor_blocks import _read_array_header, decode_block, decode_value
+from chainidx.cbor_blocks import (
+    _decode_certificates,
+    _read_array_header,
+    decode_block,
+    decode_value,
+)
 from chainidx.model import (
+    CommitteeAuthHot,
+    CommitteeResignCold,
+    DRepDeregistration,
     DRepRegistration,
+    DRepUpdate,
     PoolRegistration,
+    PoolRetirement,
     StakeDelegation,
+    StakeDeregistration,
     StakeRegistration,
+    VoteDelegation,
 )
 from chainidx.store import SqliteStore
 
@@ -81,6 +93,61 @@ def test_decoded_block_flows_into_the_store() -> None:
     # The pools registered in this genesis-setup block show up.
     assert len(store.pools()) >= 1
     store.close()
+
+
+def test_decode_all_conway_certificate_tags() -> None:
+    cred = [0, bytes.fromhex("11" * 28)]  # a key credential
+    cold = [0, bytes.fromhex("22" * 28)]
+    hot = [0, bytes.fromhex("33" * 28)]
+    pool = bytes.fromhex("44" * 28)
+    drep_key = [0, bytes.fromhex("55" * 28)]
+    certs = [
+        [0, cred],  # stake registration (legacy)
+        [7, cred, 2_000_000],  # stake registration (with deposit)
+        [1, cred],  # stake deregistration (legacy)
+        [8, cred, 2_000_000],  # stake deregistration (with deposit)
+        [2, cred, pool],  # stake delegation
+        [9, cred, drep_key],  # vote delegation to a DRep key
+        [12, cred, [2]],  # vote delegation to always-abstain
+        [4, pool, 300],  # pool retirement at epoch 300
+        [14, cold, hot],  # committee hot key authorization
+        [15, cold, None],  # committee cold key resignation
+        [17, cred, 500_000],  # DRep deregistration
+        [18, cred, None],  # DRep update
+    ]
+    decoded = _decode_certificates(certs)
+    kinds = [type(c) for c in decoded]
+    assert kinds == [
+        StakeRegistration,
+        StakeRegistration,
+        StakeDeregistration,
+        StakeDeregistration,
+        StakeDelegation,
+        VoteDelegation,
+        VoteDelegation,
+        PoolRetirement,
+        CommitteeAuthHot,
+        CommitteeResignCold,
+        DRepDeregistration,
+        DRepUpdate,
+    ]
+    vote_to_key = next(c for c in decoded if isinstance(c, VoteDelegation))
+    assert vote_to_key.drep == "55" * 28
+    abstain = [c for c in decoded if isinstance(c, VoteDelegation)][1]
+    assert abstain.drep == "AlwaysAbstain"
+    retire = next(c for c in decoded if isinstance(c, PoolRetirement))
+    assert retire.retiring_epoch == 300
+    auth = next(c for c in decoded if isinstance(c, CommitteeAuthHot))
+    assert auth.hot_credential == "33" * 28
+    # An unknown tag is skipped, not guessed at.
+    assert _decode_certificates([[99, cred]]) == ()
+
+
+def test_decode_drep_no_confidence_target() -> None:
+    cred = [0, bytes.fromhex("11" * 28)]
+    (vote,) = _decode_certificates([[9, cred, [3]]])
+    assert isinstance(vote, VoteDelegation)
+    assert vote.drep == "AlwaysNoConfidence"
 
 
 def test_decode_governance_proposals_and_votes() -> None:

@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.16.0] - Certificates browser
+
+### Added
+
+- Full Conway certificate decoding (tags 0-18): `VoteDelegation`, `DRepUpdate`,
+  `CommitteeAuthHot`, `CommitteeResignCold` models and `certificate_fields`.
+- Migration 9 flat `certificate` table (rolls back with blocks);
+  `store.certificates` and `store.certificate_summary`.
+- `/certificates` (filterable by `cert_type`) and `/certificates/summary`; a
+  Certificates section in the explorer with category filters and linked subjects.
+- The home-page transaction count links to the block's transaction list.
+
 ## [1.15.0] - Clickable governance and epoch blocks
 
 ### Added

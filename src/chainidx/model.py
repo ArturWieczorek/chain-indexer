@@ -128,6 +128,40 @@ class DRepDeregistration:
     drep_id: str
 
 
+@dataclass(frozen=True)
+class VoteDelegation:
+    """A stake address delegating its vote to a DRep (Conway, chapter 34).
+
+    ``drep`` is the target: a DRep credential (hex), or the special roles
+    ``AlwaysAbstain`` / ``AlwaysNoConfidence``.
+    """
+
+    stake_address: str
+    drep: str
+
+
+@dataclass(frozen=True)
+class DRepUpdate:
+    """A DRep updating its metadata anchor (chapter 34)."""
+
+    drep_id: str
+
+
+@dataclass(frozen=True)
+class CommitteeAuthHot:
+    """A committee member authorizing a hot credential to vote (chapter 34)."""
+
+    cold_credential: str
+    hot_credential: str
+
+
+@dataclass(frozen=True)
+class CommitteeResignCold:
+    """A committee member resigning its cold credential (chapter 34)."""
+
+    cold_credential: str
+
+
 # A certificate is any one of these. Transactions carry a list of them.
 Certificate = (
     StakeRegistration
@@ -137,7 +171,27 @@ Certificate = (
     | PoolRetirement
     | DRepRegistration
     | DRepDeregistration
+    | VoteDelegation
+    | DRepUpdate
+    | CommitteeAuthHot
+    | CommitteeResignCold
 )
+
+
+@dataclass(frozen=True)
+class CertificateRecord:
+    """A certificate as the Certificates browser lists it (chapter 34).
+
+    ``cert_type`` is a human category label (for example ``Delegation`` or
+    ``Committee Hot Key Authorization``); ``subject`` is the primary id it acts on
+    (a stake, pool, DRep, or committee credential); ``detail`` is a secondary field
+    (the pool for a delegation, the epoch for a retirement, and so on).
+    """
+
+    cert_type: str
+    subject: str
+    detail: str
+    tx_hash: str
 
 
 @dataclass(frozen=True)

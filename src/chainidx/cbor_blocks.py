@@ -40,15 +40,22 @@ from chainidx.model import (
     Asset,
     Block,
     Certificate,
+    CommitteeAuthHot,
+    CommitteeResignCold,
+    DRepDeregistration,
     DRepRegistration,
+    DRepUpdate,
     GovActionProposal,
     GovVote,
     PoolRegistration,
+    PoolRetirement,
     StakeDelegation,
+    StakeDeregistration,
     StakeRegistration,
     Tx,
     TxIn,
     TxOut,
+    VoteDelegation,
 )
 
 # Conway transaction-body map keys (a subset - the ones we index).
@@ -129,11 +136,41 @@ def _decode_output(output: list[Any]) -> TxOut:
     return TxOut(address=output[0].hex(), lovelace=lovelace, assets=assets)
 
 
+def _decode_drep(drep: list[Any]) -> str:
+    """A DRep target: a key/script credential (hex), or a special voting role.
+
+    The Conway ``drep`` type is ``[0, keyhash] / [1, scripthash] / [2] / [3]``,
+    where 2 is always-abstain and 3 is always-no-confidence.
+    """
+    kind = drep[0]
+    if kind in (0, 1):
+        return str(drep[1].hex())
+    return "AlwaysAbstain" if kind == 2 else "AlwaysNoConfidence"
+
+
 def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
+    """Decode the Conway certificate list (tx body key 4).
+
+    Each certificate is ``[tag, ...]``. The tags below are the Conway set; we map
+    each to a typed record. The variants that both register and delegate (11, 13)
+    are indexed by their delegation, which is the part later pages care about.
+    """
     out: list[Certificate] = []
     for cert in certs or ():
         tag = cert[0]
-        if tag == 3:  # pool registration
+        if tag in (0, 7):  # stake registration (legacy / with deposit)
+            out.append(StakeRegistration(stake_address=_credential_hash(cert[1])))
+        elif tag in (1, 8):  # stake deregistration (legacy / with deposit)
+            out.append(StakeDeregistration(stake_address=_credential_hash(cert[1])))
+        elif tag in (2, 10, 11, 13):  # delegation to a pool: [tag, cred, pool, ...]
+            out.append(
+                StakeDelegation(stake_address=_credential_hash(cert[1]), pool_id=cert[2].hex())
+            )
+        elif tag in (9, 12):  # vote delegation to a DRep: [tag, cred, drep, ...]
+            out.append(
+                VoteDelegation(stake_address=_credential_hash(cert[1]), drep=_decode_drep(cert[2]))
+            )
+        elif tag == 3:  # pool registration
             out.append(
                 PoolRegistration(
                     pool_id=cert[1].hex(),
@@ -142,15 +179,24 @@ def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
                     reward_address=cert[6].hex(),
                 )
             )
-        elif tag == 7:  # stake registration (Conway, with deposit)
-            out.append(StakeRegistration(stake_address=_credential_hash(cert[1])))
-        elif tag == 10:  # stake-and-vote delegation: [10, cred, pool, drep]
+        elif tag == 4:  # pool retirement: [4, pool_keyhash, epoch]
+            out.append(PoolRetirement(pool_id=cert[1].hex(), retiring_epoch=cert[2]))
+        elif tag == 14:  # committee hot key authorization: [14, cold_cred, hot_cred]
             out.append(
-                StakeDelegation(stake_address=_credential_hash(cert[1]), pool_id=cert[2].hex())
+                CommitteeAuthHot(
+                    cold_credential=_credential_hash(cert[1]),
+                    hot_credential=_credential_hash(cert[2]),
+                )
             )
-        elif tag == 16:  # DRep registration
+        elif tag == 15:  # committee cold key resignation: [15, cold_cred, anchor/null]
+            out.append(CommitteeResignCold(cold_credential=_credential_hash(cert[1])))
+        elif tag == 16:  # DRep registration: [16, cred, deposit, anchor/null]
             out.append(DRepRegistration(drep_id=_credential_hash(cert[1]), deposit=cert[2]))
-        # Other certificate tags follow the same shape and can be added here.
+        elif tag == 17:  # DRep deregistration: [17, cred, deposit]
+            out.append(DRepDeregistration(drep_id=_credential_hash(cert[1])))
+        elif tag == 18:  # DRep update: [18, cred, anchor/null]
+            out.append(DRepUpdate(drep_id=_credential_hash(cert[1])))
+        # Unknown tags are skipped rather than guessed at.
     return tuple(out)
 
 
