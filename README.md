@@ -52,6 +52,38 @@ There are **two web pages**, both served by the one running process:
 
 Same data, two lenses: `/` to explore, `/live` to watch.
 
+## What you can use it for
+
+Beyond learning, a small reorg-aware indexer earns its keep in a few concrete spots -
+especially around **local clusters and test suites** (the kind
+[cardano-node-tests](https://github.com/IntersectMBO/cardano-node-tests) runs on
+magic `42` with [cardonnay](https://github.com/mkoura/cardonnay)):
+
+- **Deterministic reorg assertions in tests.** Chain-reorg tests usually force a
+  fork (a topology split, a node restart) and then *infer* the rollback by polling
+  UTxOs across nodes and sleeping. This indexer emits an explicit **rollback event**
+  (the removed block hashes and their count) the moment it happens - point a `file`
+  or `webhook` sink at it and assert on that event instead of guessing. db-sync
+  rewinds its tables silently, so it cannot give you this signal.
+- **"Did my transaction land?" with zero setup.** On a local cluster or in CI where
+  standing up db-sync + Postgres is overkill, run the **SQLite** backend (a file
+  appears, nothing to install) and check `/txs/{hash}`, `/matches/{address}`, or a
+  log/file sink to confirm a submitted transaction was indexed - fast feedback on the
+  many runs where db-sync is not provisioned.
+- **A human view while debugging a cluster.** When a test pauses or fails, point the
+  explorer and `/live` dashboard at the cluster's socket to eyeball blocks, txs,
+  UTxOs, assets, certificates, and governance - friendlier than `cardano-cli` or raw
+  SQL, and it shows both sides of a fork if you run one indexer per node.
+- **Watching and reacting to the chain.** kupo-style `/matches` to find UTxOs by
+  address / policy / asset; adder-style sinks to react to a mint, a delegation, or a
+  rollback as it happens.
+
+Honest scope: for exhaustive validation (redeemers, mint details, cost models,
+reward and epoch tables), [db-sync](https://github.com/IntersectMBO/cardano-db-sync)
+is the deep, battle-tested tool and this does not replace it. The niche here is being
+**lightweight, zero-dependency, and reorg-aware with a rollback signal** - the fast
+complement, not the reference indexer.
+
 ## What it is (in one picture)
 
 ```
