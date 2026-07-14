@@ -61,3 +61,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch55 - Per-epoch stake history (v1.37.0)
 - [x] ch56 - Governance tabs (v1.38.0)
 - [x] ch57 - Header status and theme label (v1.39.0)
+- [x] ch58 - A configuration file (v1.40.0)

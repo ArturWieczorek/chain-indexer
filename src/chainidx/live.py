@@ -59,15 +59,15 @@ def create_live_app(
     return app
 
 
-async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  # pragma: no cover
+async def _snapshot_loop(  # pragma: no cover
+    store: Store, socket_path: str, magic: int, keep_history: bool = False
+) -> None:
     """Periodically refresh the live-stake snapshot via local-state-query."""
     import asyncio
-    import os
 
     from chainidx.localstate import LocalStateClient
 
     client = LocalStateClient(socket_path, magic)
-    keep_history = bool(os.environ.get("CHAINIDX_STAKE_HISTORY"))
     while True:
         try:
             snap = await client.snapshot()
@@ -85,38 +85,45 @@ async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  #
         await asyncio.sleep(20)
 
 
-async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: no cover
+async def _run_live(cfg: object) -> None:  # pragma: no cover
     import asyncio
-    import os
 
     import uvicorn
 
-    from chainidx.api import load_network
+    from chainidx.config import Config
     from chainidx.follow import Follower
+    from chainidx.indexers import indexers_for
     from chainidx.mempoolclient import MempoolClient
+    from chainidx.network import NetworkParams
     from chainidx.node import NodeSource
     from chainidx.offchain import fetch_pool_metadata
     from chainidx.store import SqliteStore
 
-    store = SqliteStore(db)
+    assert isinstance(cfg, Config)
+    store = SqliteStore(cfg.db_path, indexers=indexers_for(cfg.features))
     bus = EventBus()
-    source = NodeSource(socket_path, magic)
+    source = NodeSource(cfg.socket_path, cfg.network_magic)
     follower = Follower(source, store, bus=bus)
-    mempool_client = MempoolClient(socket_path, magic)
-    fetcher = fetch_pool_metadata if os.environ.get("CHAINIDX_FETCH_METADATA") else None
-    gateway = os.environ.get("CHAINIDX_IPFS_GATEWAY") or None
-    app = create_live_app(store, bus, load_network(), mempool_client.status_sync, fetcher, gateway)
+    mempool_client = MempoolClient(cfg.socket_path, cfg.network_magic)
+    network = NetworkParams.from_genesis(cfg.genesis_path) if cfg.genesis_path else None
+    fetcher = fetch_pool_metadata if cfg.fetch_metadata else None
+    gateway = cfg.ipfs_gateway or None
+    app = create_live_app(store, bus, network, mempool_client.status_sync, fetcher, gateway)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
     print("live view on http://127.0.0.1:8000/live")
-    await asyncio.gather(server.serve(), follower.run(), _snapshot_loop(store, socket_path, magic))
+    await asyncio.gather(
+        server.serve(),
+        follower.run(),
+        _snapshot_loop(store, cfg.socket_path, cfg.network_magic, cfg.stake_history),
+    )
 
 
 def _main() -> None:  # pragma: no cover
     import asyncio
-    import os
 
-    socket_path = os.environ.get("CARDANO_NODE_SOCKET_PATH", "")
-    asyncio.run(_run_live(socket_path, 42, os.environ.get("CHAINIDX_DB", "chain.db")))
+    from chainidx import config
+
+    asyncio.run(_run_live(config.load()))
 
 
 if __name__ == "__main__":  # pragma: no cover

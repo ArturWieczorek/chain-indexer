@@ -320,14 +320,24 @@ class MintIndexer:
             )
 
 
+# The optional indexers, by feature name (chapter 58). The core output and input
+# indexers are always run; these can be switched on and off in the config.
+OPTIONAL_INDEXERS: dict[str, type] = {
+    "certificates": CertIndexer,
+    "governance": GovIndexer,
+    "withdrawals": WithdrawalIndexer,
+    "assets": AssetMetadataIndexer,
+    "mints": MintIndexer,
+}
+
+
+def indexers_for(features: frozenset[str]) -> tuple[Indexer, ...]:
+    """The core indexers plus whichever optional ones ``features`` enables."""
+    result: list[Indexer] = [OutputIndexer(), InputIndexer()]
+    result.extend(cls() for name, cls in OPTIONAL_INDEXERS.items() if name in features)
+    return tuple(result)
+
+
 def default_indexers() -> tuple[Indexer, ...]:
-    """The indexers a store runs by default, in the order they must run."""
-    return (
-        OutputIndexer(),
-        InputIndexer(),
-        CertIndexer(),
-        GovIndexer(),
-        WithdrawalIndexer(),
-        AssetMetadataIndexer(),
-        MintIndexer(),
-    )
+    """The indexers a store runs by default (all optional features on)."""
+    return indexers_for(frozenset(OPTIONAL_INDEXERS))

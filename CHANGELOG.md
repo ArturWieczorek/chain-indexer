@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.40.0] - A configuration file
+
+### Added
+
+- `config.py` (`Config`, `from_dict`, `load`): one JSON config for node/db paths,
+  opt-in extras, and feature toggles; environment variables still override.
+- `indexers.indexers_for` and `OPTIONAL_INDEXERS`; the live runner is driven by a
+  single `Config`.
+
 ## [1.39.0] - Header status and theme label
 
 ### Changed
