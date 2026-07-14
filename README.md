@@ -618,6 +618,19 @@ chainidx state --socket /path/to/node.socket --magic 42
 
 # submit a signed transaction to the node, over our own protocol
 chainidx submit tx.signed --socket /path/to/node.socket --magic 42
+
+# tail the live event stream as JSON lines (great in tests/CI)
+chainidx events --socket /path/to/node.socket --magic 42 --type rollback
+```
+
+`chainidx events` follows the node and prints each matching event as one line of
+JSON - the same events the sinks and `/live` receive. Filter with repeatable
+`--type` / `--address` / `--policy` / `--asset`, and pipe it to `jq`, `grep`, or a
+file. For example, to block a test until a policy is minted, or to catch a reorg:
+
+```bash
+chainidx events --socket "$SOCK" --magic 42 --policy "$POLICYID" | jq .
+chainidx events --socket "$SOCK" --magic 42 --type rollback   # one line per reorg
 ```
 
 You can also run just the follower, or just the explorer, if you prefer them

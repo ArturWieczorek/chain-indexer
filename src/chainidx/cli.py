@@ -218,5 +218,51 @@ def follow(  # pragma: no cover - drives a live node
     asyncio.run(run())
 
 
+@main.command(name="events")
+@click.option("--socket", envvar="CARDANO_NODE_SOCKET_PATH", default="")
+@click.option("--magic", default=42, type=int)
+@click.option("--type", "types", multiple=True, help="Only these event types (repeatable).")
+@click.option("--address", "addresses", multiple=True, help="Only txs paying these addresses.")
+@click.option("--policy", "policies", multiple=True, help="Only txs touching these policy ids.")
+@click.option("--asset", "assets", multiple=True, help="Only txs touching these policyid.name.")
+def tail_events(  # pragma: no cover - drives a live node
+    socket: str,
+    magic: int,
+    types: tuple[str, ...],
+    addresses: tuple[str, ...],
+    policies: tuple[str, ...],
+    assets: tuple[str, ...],
+) -> None:
+    """Follow a live chain and print matching events as JSON lines (one per line).
+
+    A terminal tail of the same event bus the webhooks use - handy in tests and CI
+    to await a transaction or assert a rollback without a browser or a database.
+    Pipe it to ``jq``, ``grep``, or a file. Filters combine like the sinks: any of a
+    field's values, all of the given fields.
+    """
+    import asyncio
+
+    from chainidx.event import EventBus
+    from chainidx.follow import Follower
+    from chainidx.node import NodeSource
+    from chainidx.patterns import event_filter_from_dict
+    from chainidx.sinks import LogSink, run_sink
+
+    event_filter = event_filter_from_dict(
+        {"types": types, "addresses": addresses, "policies": policies, "assets": assets}
+    )
+
+    async def run() -> None:
+        bus = EventBus()
+        store = SqliteStore()  # in-memory; we only want the event stream
+        follower = Follower(NodeSource(socket, magic), store, bus=bus)
+        try:
+            await asyncio.gather(follower.run(), run_sink(bus, LogSink(event_filter)))
+        finally:
+            store.close()
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":  # pragma: no cover
     main()
