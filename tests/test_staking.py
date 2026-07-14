@@ -91,6 +91,23 @@ def test_live_stake_and_saturation() -> None:
     store.close()
 
 
+def test_pool_delegators_tracks_latest_delegation() -> None:
+    store = SqliteStore()
+    certs = (
+        PoolRegistration("pool1", 1000, 0.03, "r"),
+        StakeDelegation("credA", "pool1"),
+        StakeDelegation("credB", "pool1"),
+    )
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", txs=(Tx("tx1", certificates=certs),), issuer="pool1")
+    )
+    # credA redelegates away; it should drop out of pool1's delegators.
+    redelegate = Tx("tx2", certificates=(StakeDelegation("credA", "pool2"),))
+    store.apply_block(Block(2, 20, "b2", "b1", txs=(redelegate,)))
+    assert store.pool_delegators("pool1") == ["credB"]
+    store.close()
+
+
 def test_a_pool_registration_makes_the_pool_active() -> None:
     store = SqliteStore()
     reg = PoolRegistration(pool_id="pool1", pledge=1000, margin=0.03, reward_address="stake_x")

@@ -286,7 +286,15 @@
           `<div>saturation</div><div>${(p.saturation * 100).toFixed(1)}%</div>` +
           `<div>pledge</div><div class="lovelace">${ada(p.pledge)}</div>` +
           `<div>margin</div><div>${(p.margin * 100).toFixed(2)}%</div>` +
-          `<div>reward address</div><div>${esc(p.reward_address)}</div></div></div>` +
+          `<div>reward address</div><div>${p.reward_address ? link("account", p.reward_address, p.reward_address) : "-"}</div>` +
+          `</div></div>` +
+          ((p.delegators_list || []).length
+            ? `<h2>Delegators</h2><div class="panel"><table>` +
+              (p.delegators_list || [])
+                .map((d) => `<tr><td class="wrap">${link("account", d, short(d))}</td></tr>`)
+                .join("") +
+              `</table></div>`
+            : "") +
           (blocks ? `<h2>Recent blocks</h2><div class="panel"><table>${blocks}</table></div>` : "");
       }
 

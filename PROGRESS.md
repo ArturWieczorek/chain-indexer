@@ -30,3 +30,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch24 - Live stake and saturation (v1.6.0)
 - [x] ch25 - Bech32 addresses (v1.7.0)
 - [x] ch26 - Accounts and rewards (v1.8.0)
+- [x] ch27 - Account links in the UI (v1.9.0)

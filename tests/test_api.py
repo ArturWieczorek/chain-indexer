@@ -92,6 +92,39 @@ def test_account_with_delegation_and_rewards() -> None:
     assert account["delegated_to"] == "poolX"
 
 
+def test_pool_detail_links_reward_address_and_delegators() -> None:
+    store = SqliteStore()
+    reward_hex = "e0" + "11" * 28  # a 29-byte testnet reward/stake address
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    certificates=(
+                        PoolRegistration("pool1", 1000, 0.03, reward_hex),
+                        StakeDelegation("aa" * 28, "pool1"),
+                    ),
+                ),
+            ),
+            issuer="pool1",
+        )
+    )
+    detail = TestClient(create_app(store)).get("/pools/pool1").json()
+    assert detail["reward_address"].startswith("stake_test1")
+    assert detail["delegators_list"][0].startswith("stake_test1")
+
+
+def test_stake_display_helper() -> None:
+    from chainidx.api import _stake_display
+
+    assert _stake_display("aa" * 28).startswith("stake_test1")
+    assert _stake_display("nothex") == "nothex"
+
+
 def test_stake_credential_decoding() -> None:
     from chainidx.api import _stake_credential
     from chainidx.bech32 import encode

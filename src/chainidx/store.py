@@ -127,6 +127,10 @@ class Store(Protocol):
         """Return recent block hashes minted by a pool, newest first."""
         ...
 
+    def pool_delegators(self, pool_id: str, limit: int = 50) -> list[str]:
+        """Return stake credentials whose latest delegation is to this pool."""
+        ...
+
     def record_stake_distribution(self, stakes: dict[str, float], n_opt: int) -> None:
         """Replace the live-stake snapshot (from local-state-query)."""
         ...
@@ -757,6 +761,15 @@ class SqliteStore:
             (pool_id, limit),
         ).fetchall()
         return [r["hash"] for r in rows]
+
+    def pool_delegators(self, pool_id: str, limit: int = 50) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT d.addr AS addr FROM delegation d WHERE d.pool_id = ? "
+            "AND d.tx_id = (SELECT MAX(tx_id) FROM delegation d2 WHERE d2.addr = d.addr) "
+            "ORDER BY d.addr LIMIT ?",
+            (pool_id, limit),
+        ).fetchall()
+        return [r["addr"] for r in rows]
 
     def delegation_of(self, stake_address: str) -> str | None:
         row = self._conn.execute(

@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.9.0] - Account links in the UI
+
+### Added
+
+- `store.pool_delegators`; `/pools/{id}` returns a bech32 reward address and a
+  `delegators_list` of stake accounts.
+- Clickable reward-address and delegator account links on the pool page.
+
 ## [1.8.0] - Accounts and rewards
 
 ### Added

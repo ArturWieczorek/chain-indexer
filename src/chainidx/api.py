@@ -58,6 +58,14 @@ def _to_hex(arg: str, *prefixes: str) -> str:
     return arg
 
 
+def _stake_display(credential_hex: str) -> str:
+    """A 28-byte stake credential as a ``stake_test1...`` address (testnet key)."""
+    try:
+        return bech32.address_to_bech32("e0" + credential_hex)
+    except (ValueError, IndexError):
+        return credential_hex
+
+
 def _stake_credential(arg: str) -> str:
     """Turn a stake address (``stake...``) into its 28-byte credential hex.
 
@@ -121,7 +129,7 @@ def _pool(summary: PoolSummary) -> dict[str, Any]:
         "delegators": summary.delegators,
         "pledge": summary.pledge,
         "margin": summary.margin,
-        "reward_address": summary.reward_address,
+        "reward_address": _address_display(summary.reward_address),
         "live_stake": summary.live_stake,
         "saturation": summary.saturation,
     }
@@ -236,6 +244,7 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="pool not found")
         out = _pool(summary)
         out["recent_blocks"] = store.recent_blocks_by_pool(key)
+        out["delegators_list"] = [_stake_display(c) for c in store.pool_delegators(key)]
         return out
 
     @app.get("/accounts/{stake_address}")
