@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.42.0] - Live status colour
+
+### Changed
+
+- The live view's connection status is now coloured: green when connected, red
+  when the socket drops.
+
 ## [1.41.0] - Pool performance: expected vs made, and saturation
 
 ### Added

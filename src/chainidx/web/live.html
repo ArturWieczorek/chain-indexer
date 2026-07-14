@@ -178,12 +178,16 @@
         }
       }
 
+      function setConn(text, color) {
+        conn.textContent = text;
+        conn.style.color = color;
+      }
       function connect() {
         const ws = new WebSocket(`ws://${location.host}/stream`);
-        ws.onopen = () => (conn.textContent = "live");
+        ws.onopen = () => setConn("● live", "var(--good)");
         ws.onmessage = (m) => handle(JSON.parse(m.data));
         ws.onclose = () => {
-          conn.textContent = "reconnecting...";
+          setConn("● offline", "var(--bad)");
           setTimeout(connect, 1500);
         };
       }
