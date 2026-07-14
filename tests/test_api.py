@@ -469,6 +469,34 @@ def test_withdrawals() -> None:
     assert api.get("/txs/txw").json()["withdrawals"][0]["amount"] == 2_000_000
 
 
+def test_protocol_updates_filters_governance_actions() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    proposals=(
+                        GovActionProposal("pc", "ParameterChange", 0, "r"),
+                        GovActionProposal("hf", "HardForkInitiation", 0, "r"),
+                        GovActionProposal("info", "InfoAction", 0, "r"),
+                    ),
+                ),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    updates = api.get("/governance/protocol-updates").json()
+    types = {u["action_type"] for u in updates}
+    assert types == {"ParameterChange", "HardForkInitiation"}  # InfoAction excluded
+    # The full governance list still has all three.
+    assert len(api.get("/governance/actions").json()) == 3
+
+
 def test_committee_page() -> None:
     store = SqliteStore()
     store.apply_block(

@@ -454,13 +454,34 @@
               .join("")
           : `<tr><td colspan="3" class="muted">No DReps registered yet.</td></tr>`;
         app.innerHTML =
-          `<div class="panel" style="display:flex;gap:.4rem">` +
+          `<div class="panel" style="display:flex;gap:.4rem;flex-wrap:wrap">` +
           `<a class="pill" href="#/committee">Committee</a>` +
-          `<a class="pill" href="#/params">Protocol parameters</a></div>` +
+          `<a class="pill" href="#/params">Protocol parameters</a>` +
+          `<a class="pill" href="#/protocol-updates">Protocol updates</a></div>` +
           `<h2>Governance actions</h2><div class="panel"><table>` +
           `<tr><th>Action</th><th>Type</th><th>Yes / No / Abstain</th></tr>${actionRows}</table></div>` +
           `<h2>Delegated representatives (DReps)</h2><div class="panel"><table>` +
           `<tr><th>DRep</th><th>Deposit</th><th>Votes cast</th></tr>${drepRows}</table></div>`;
+      }
+
+      async function protocolUpdatesPage() {
+        const actions = await api("/governance/protocol-updates");
+        const rows = actions.length
+          ? actions
+              .map(
+                (a) =>
+                  `<tr><td class="wrap">${link("gov", a.gov_action_id, short(a.gov_action_id))}</td>` +
+                  `<td>${esc(a.action_type)}</td>` +
+                  `<td>${a.tally.yes} / ${a.tally.no} / ${a.tally.abstain}</td></tr>`
+              )
+              .join("")
+          : `<tr><td colspan="3" class="muted">No protocol-parameter or hard-fork actions on-chain yet.</td></tr>`;
+        app.innerHTML =
+          `<h2>Protocol updates</h2><div class="panel muted" style="margin-bottom:.6rem">` +
+          `In Conway, protocol changes are governance actions: parameter changes and ` +
+          `hard-fork initiations.</div>` +
+          `<div class="panel"><table>` +
+          `<tr><th>Action</th><th>Type</th><th>Yes / No / Abstain</th></tr>${rows}</table></div>`;
       }
 
       async function paramsPage() {
@@ -877,6 +898,7 @@
           else if (parts[0] === "pool" && parts[1]) await poolDetail(parts[1]);
           else if (parts[0] === "governance") await governancePage();
           else if (parts[0] === "params") await paramsPage();
+          else if (parts[0] === "protocol-updates") await protocolUpdatesPage();
           else if (parts[0] === "committee" && parts[1]) await committeeMemberPage(parts[1]);
           else if (parts[0] === "committee") await committeePage();
           else if (parts[0] === "gov" && parts[1]) await govDetail(parts[1]);

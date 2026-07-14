@@ -247,6 +247,10 @@ class Store(Protocol):
         """Return every governance action with its Yes/No/Abstain tally."""
         ...
 
+    def protocol_updates(self) -> list[GovActionSummary]:
+        """Return the protocol-changing governance actions (param change / hard fork)."""
+        ...
+
     def governance_action_votes(self, gov_action_id: str) -> tuple[GovVoteRecord, ...]:
         """Return the individual votes cast on a governance action."""
         ...
@@ -1316,6 +1320,10 @@ class SqliteStore:
                 )
             )
         return summaries
+
+    def protocol_updates(self) -> list[GovActionSummary]:
+        kinds = {"ParameterChange", "HardForkInitiation"}
+        return [s for s in self.governance_action_summaries() if s.action_type in kinds]
 
     def governance_action_votes(self, gov_action_id: str) -> tuple[GovVoteRecord, ...]:
         rows = self._conn.execute(

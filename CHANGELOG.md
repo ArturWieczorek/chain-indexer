@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.26.0] - Protocol updates
+
+### Added
+
+- `store.protocol_updates` (governance actions of type ParameterChange or
+  HardForkInitiation); `/governance/protocol-updates` and a Protocol updates page
+  in the explorer.
+
 ## [1.25.0] - The mempool (local-tx-monitor)
 
 ### Added

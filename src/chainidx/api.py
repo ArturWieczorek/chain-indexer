@@ -431,6 +431,10 @@ def create_app(
     def governance_actions() -> list[dict[str, Any]]:
         return [_gov_action(a) for a in store.governance_action_summaries()]
 
+    @app.get("/governance/protocol-updates")
+    def protocol_updates() -> list[dict[str, Any]]:
+        return [_gov_action(a) for a in store.protocol_updates()]
+
     @app.get("/governance/actions/{gov_action_id}")
     def governance_action(gov_action_id: str) -> dict[str, Any]:
         match = next(
