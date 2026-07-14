@@ -217,7 +217,7 @@ def _reference_script(output: Any) -> tuple[str, str, str]:
     return digest, _SCRIPT_TYPES[tag], inner.hex()
 
 
-def _decode_output(output: list[Any]) -> TxOut:
+def _decode_output(output: Any) -> TxOut:
     # Works for both the legacy list form [addr, value] and the Conway map form
     # {0: addr, 1: value, ...}, because both are indexed by 0 and 1.
     lovelace, assets = decode_value(output[1])

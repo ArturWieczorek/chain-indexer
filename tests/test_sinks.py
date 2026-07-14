@@ -39,7 +39,9 @@ def test_build_sink_dispatches_on_type() -> None:
     assert hook.event_filter.addresses == frozenset({"addrA"})
 
     # The default type is webhook, and the `url` shorthand still works.
-    assert build_sink({"url": "https://h2"}).url == "https://h2"
+    default_hook = build_sink({"url": "https://h2"})
+    assert isinstance(default_hook, WebhookSink)
+    assert default_hook.url == "https://h2"
 
     with pytest.raises(ValueError, match="unknown sink type"):
         build_sink({"type": "carrier-pigeon"})

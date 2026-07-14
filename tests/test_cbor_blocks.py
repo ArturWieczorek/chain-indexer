@@ -272,6 +272,7 @@ def test_decode_pool_registration_cost_and_metadata() -> None:
     # A pool with no metadata anchor (null) has an empty url and hash.
     cert[9] = None
     reg = _decode_certificates([cert])[0]
+    assert isinstance(reg, PoolRegistration)
     assert reg.metadata_url == ""
     assert reg.metadata_hash == ""
 
