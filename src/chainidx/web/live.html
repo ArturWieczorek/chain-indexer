@@ -156,6 +156,12 @@
           set("t-txs", counters.txs);
           addBar(e.tx_count);
           prepend("block", `#${e.block_no} slot ${e.slot} (${e.tx_count} txs)`);
+        } else if (e.type === "transaction") {
+          const ada = (e.lovelace / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 });
+          const bits = [`${e.output_count} out`, `${ada} ADA`];
+          if (e.mint_count > 0) bits.push(`minted ${e.mint_count}`);
+          if (e.assets.length > 0) bits.push(e.assets[0].split(".")[0].slice(0, 10) + "...");
+          prepend("transaction", `${e.tx_hash.slice(0, 12)}... ${bits.join(", ")}`);
         } else if (e.type === "rollback") {
           counters.rollbacks += 1;
           set("t-rollbacks", counters.rollbacks);
