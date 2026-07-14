@@ -633,6 +633,13 @@ chainidx events --socket "$SOCK" --magic 42 --policy "$POLICYID" | jq .
 chainidx events --socket "$SOCK" --magic 42 --type rollback   # one line per reorg
 ```
 
+And to start the whole thing (follower + explorer + live view + sinks) with a
+friendly flag instead of the `CHAINIDX_CONFIG` environment variable:
+
+```bash
+chainidx run --config config.json    # same as: CHAINIDX_CONFIG=config.json python -m chainidx.live
+```
+
 You can also run just the follower, or just the explorer, if you prefer them
 separate - see `chainidx --help`.
 

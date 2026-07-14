@@ -264,5 +264,21 @@ def tail_events(  # pragma: no cover - drives a live node
     asyncio.run(run())
 
 
+@main.command(name="run")
+@click.option("--config", "config_path", default="", help="Path to a JSON config file.")
+def run_server(config_path: str) -> None:  # pragma: no cover - runs the server + live node
+    """Run the whole thing from a config file: follower, explorer, live view, sinks.
+
+    Same as ``python -m chainidx.live`` but with a friendly ``--config`` flag. With
+    no flag it falls back to the ``CHAINIDX_CONFIG`` environment variable.
+    """
+    import asyncio
+
+    from chainidx import config as config_module
+    from chainidx.live import _run_live
+
+    asyncio.run(_run_live(config_module.load(config_path or None)))
+
+
 if __name__ == "__main__":  # pragma: no cover
     main()
