@@ -441,7 +441,7 @@ class SqliteStore:
 
     def get_block(self, block_hash: str) -> Block | None:
         row = self._conn.execute(
-            "SELECT id, hash, slot_no, block_no, prev_hash FROM block WHERE hash = ?",
+            "SELECT id, hash, slot_no, block_no, prev_hash, issuer FROM block WHERE hash = ?",
             (block_hash,),
         ).fetchone()
         if row is None:
@@ -457,6 +457,7 @@ class SqliteStore:
             block_hash=row["hash"],
             prev_hash=row["prev_hash"],
             txs=txs,
+            issuer=row["issuer"],
         )
 
     def get_block_by_number(self, block_no: int) -> Block | None:

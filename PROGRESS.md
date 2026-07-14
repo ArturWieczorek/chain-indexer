@@ -28,3 +28,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch22 - Pools (v1.4.0)
 - [x] ch23 - Governance (v1.5.0)
 - [x] ch24 - Live stake and saturation (v1.6.0)
+- [x] ch25 - Bech32 addresses (v1.7.0)

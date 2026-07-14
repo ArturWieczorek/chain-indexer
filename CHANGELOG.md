@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.7.0] - Bech32 addresses
+
+### Added
+
+- `chainidx.bech32`: BIP-0173 encode/decode and `pool_to_bech32`/
+  `address_to_bech32`, verified against cardano-cli.
+- API renders pool ids, block issuers, and addresses as bech32 and accepts
+  bech32 in `/pools/{id}` and `/addresses/{addr}`; explorer shows pool1.../
+  addr_test1... and a block's minting pool.
+
 ## [1.6.0] - Live stake and saturation
 
 ### Added

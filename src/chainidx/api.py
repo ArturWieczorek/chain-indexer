@@ -16,6 +16,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
+from chainidx import bech32
 from chainidx.model import (
     Asset,
     Block,
@@ -31,6 +32,32 @@ from chainidx.network import NetworkParams
 from chainidx.store import Store
 
 
+def _pool_display(pool_id_hex: str) -> str:
+    """Pool id as bech32 (pool1...), or unchanged if it is not a hex hash."""
+    try:
+        return bech32.pool_to_bech32(pool_id_hex)
+    except ValueError:
+        return pool_id_hex
+
+
+def _address_display(address_hex: str) -> str:
+    """Address as bech32, or unchanged if it is not raw hex (e.g. test data)."""
+    try:
+        return bech32.address_to_bech32(address_hex)
+    except (ValueError, IndexError):
+        return address_hex
+
+
+def _to_hex(arg: str, *prefixes: str) -> str:
+    """Decode a bech32 argument to hex if it has one of the prefixes."""
+    if any(arg.startswith(p) for p in prefixes):
+        try:
+            return bech32.decode(arg)[1].hex()
+        except ValueError:
+            return arg
+    return arg
+
+
 def _asset(asset: Asset) -> dict[str, Any]:
     return {
         "policy_id": asset.policy_id,
@@ -41,7 +68,7 @@ def _asset(asset: Asset) -> dict[str, Any]:
 
 def _output(output: TxOut) -> dict[str, Any]:
     return {
-        "address": output.address,
+        "address": _address_display(output.address),
         "lovelace": output.lovelace,
         "assets": [_asset(a) for a in output.assets],
     }
@@ -56,6 +83,8 @@ def _block(block: Block, network: NetworkParams | None = None) -> dict[str, Any]
         "tx_count": len(block.txs),
         "tx_hashes": [t.tx_id for t in block.txs],
     }
+    if block.issuer:
+        out["issuer"] = _pool_display(block.issuer)
     if network is not None:
         out["epoch_no"] = network.epoch_of(block.slot_no)
         out["time"] = network.slot_time(block.slot_no)
@@ -73,7 +102,7 @@ def _tx(detail: TxDetail) -> dict[str, Any]:
 
 def _pool(summary: PoolSummary) -> dict[str, Any]:
     return {
-        "pool_id": summary.pool_id,
+        "pool_id": _pool_display(summary.pool_id),
         "blocks_minted": summary.blocks_minted,
         "delegators": summary.delegators,
         "pledge": summary.pledge,
@@ -170,10 +199,11 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
 
     @app.get("/addresses/{address}")
     def address(address: str) -> dict[str, Any]:
+        key = _to_hex(address, "addr", "stake")
         return {
             "address": address,
-            "balance": store.balance(address),
-            "utxos": [_output(o) for o in store.utxos(address)],
+            "balance": store.balance(key),
+            "utxos": [_output(o) for o in store.utxos(key)],
         }
 
     @app.get("/assets")
@@ -186,11 +216,12 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
 
     @app.get("/pools/{pool_id}")
     def pool(pool_id: str) -> dict[str, Any]:
-        summary = store.pool_detail(pool_id)
+        key = _to_hex(pool_id, "pool")
+        summary = store.pool_detail(key)
         if summary is None:
             raise HTTPException(status_code=404, detail="pool not found")
         out = _pool(summary)
-        out["recent_blocks"] = store.recent_blocks_by_pool(pool_id)
+        out["recent_blocks"] = store.recent_blocks_by_pool(key)
         return out
 
     @app.get("/accounts/{stake_address}")

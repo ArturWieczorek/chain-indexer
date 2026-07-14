@@ -297,6 +297,7 @@
           `<div>height</div><div>${b.block_no}</div>` +
           `<div>epoch</div><div>${b.epoch_no != null ? link("epoch", b.epoch_no, b.epoch_no) : "-"}</div>` +
           `<div>time</div><div>${esc(b.time || "-")}</div>` +
+          `<div>minted by</div><div>${b.issuer ? link("pool", b.issuer, short(b.issuer)) : "-"}</div>` +
           `<div>hash</div><div>${esc(b.hash)}</div>` +
           `<div>slot</div><div>${b.slot_no}</div>` +
           `<div>previous</div><div>${b.prev_hash ? link("block", b.prev_hash, b.prev_hash) : "<span class='muted'>origin</span>"}</div>` +
@@ -388,6 +389,7 @@
         if (/^\d+$/.test(q)) route = `height/${q}`;
         else if (/^slot:\s*\d+$/i.test(q)) route = `slot/${q.split(":")[1].trim()}`;
         else if (/^[0-9a-f]{64}$/i.test(q)) route = `hash/${q}`;
+        else if (q.startsWith("pool1")) route = `pool/${q}`;
         else route = `address/${q}`;
         location.hash = `#/${route}`;
         e.target.value = "";

@@ -64,6 +64,21 @@ def client() -> TestClient:
     return TestClient(create_app(store))
 
 
+def test_bech32_display_and_decode_helpers() -> None:
+    from chainidx.api import _address_display, _pool_display, _to_hex
+
+    pool_hex = "6887684e60a31bf89dcae5b58346f31a5da33f396f6a00f09daf21a0"
+    addr_hex = "00" + "11" * 56
+    # Real hex encodes to bech32; non-hex test ids pass through unchanged.
+    assert _pool_display(pool_hex).startswith("pool1")
+    assert _pool_display("pool1") == "pool1"
+    assert _address_display(addr_hex).startswith("addr_test1")
+    assert _address_display("alice") == "alice"
+    # Arguments decode back to hex when prefixed, else pass through.
+    assert _to_hex(_pool_display(pool_hex), "pool") == pool_hex
+    assert _to_hex("plainhex", "pool") == "plainhex"
+
+
 def test_blocks_latest_is_404_on_an_empty_store() -> None:
     empty = TestClient(create_app(SqliteStore()))
     assert empty.get("/blocks/latest").status_code == 404

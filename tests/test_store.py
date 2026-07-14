@@ -36,6 +36,17 @@ def test_apply_block_persists_a_block() -> None:
     store.close()
 
 
+def test_get_block_preserves_the_issuer() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(block_no=1, slot_no=10, block_hash="b1", prev_hash="genesis", txs=(), issuer="poolX")
+    )
+    fetched = store.get_block("b1")
+    assert fetched is not None
+    assert fetched.issuer == "poolX"
+    store.close()
+
+
 def test_get_block_round_trips_with_its_transactions() -> None:
     store = SqliteStore()
     txs = (Tx(tx_id="tx_a"), Tx(tx_id="tx_b"))
