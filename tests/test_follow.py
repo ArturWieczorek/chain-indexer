@@ -1,6 +1,6 @@
 """Tests for the sync loop (Follower), driven by a scripted FakeSource."""
 
-from chainidx.follow import Follower
+from chainidx.follow import Follower, format_progress
 from chainidx.model import ORIGIN, Block, Tx, TxIn, TxOut
 from chainidx.source import ChainEvent, FakeSource, RollBackward, RollForward
 from chainidx.store import SqliteStore
@@ -65,6 +65,13 @@ async def test_follower_handles_a_reorg_through_the_loop() -> None:
     assert stats.applied == 5
     assert stats.rolled_back == 2
     store.close()
+
+
+def test_format_progress_summarises_the_sync() -> None:
+    line = format_progress(12873, 12873, 2)
+    assert "#12873" in line
+    assert "12873 applied" in line
+    assert "2 rolled back" in line
 
 
 async def test_follower_respects_max_events() -> None:

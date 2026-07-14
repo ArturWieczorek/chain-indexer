@@ -85,6 +85,26 @@ async def _snapshot_loop(  # pragma: no cover
         await asyncio.sleep(20)
 
 
+async def _progress_loop(  # pragma: no cover
+    store: Store, follower: object, interval: float = 10.0
+) -> None:
+    """Print a one-line sync summary to the terminal every ``interval`` seconds.
+
+    The web view shows the detail; this is so the terminal is not silent and you
+    can see the indexer working (and rolling back) at a glance.
+    """
+    import asyncio
+
+    from chainidx.follow import format_progress
+
+    stats = follower.stats  # type: ignore[attr-defined]
+    while True:
+        await asyncio.sleep(interval)
+        tip = store.tip()
+        height = tip.block_no if tip is not None else 0
+        print(format_progress(height, stats.applied, stats.rolled_back), flush=True)
+
+
 async def _run_live(cfg: object) -> None:  # pragma: no cover
     import asyncio
 
@@ -117,13 +137,12 @@ async def _run_live(cfg: object) -> None:  # pragma: no cover
     fetcher = fetch_pool_metadata if cfg.fetch_metadata else None
     gateway = cfg.ipfs_gateway or None
     app = create_live_app(store, bus, network, mempool_client.status_sync, fetcher, gateway)
-    server = uvicorn.Server(
-        uvicorn.Config(app, host=cfg.host, port=cfg.port, log_level="warning")
-    )
+    server = uvicorn.Server(uvicorn.Config(app, host=cfg.host, port=cfg.port, log_level="warning"))
     print(f"live view on http://{cfg.host}:{cfg.port}/live")
     await asyncio.gather(
         server.serve(),
         follower.run(),
+        _progress_loop(store, follower),
         _snapshot_loop(store, cfg.socket_path, cfg.network_magic, cfg.stake_history),
     )
 

@@ -138,11 +138,18 @@ CHAINIDX_CONFIG=config.json python -m chainidx.live
 That one command does everything: it connects to the node, follows the chain from
 the beginning, writes blocks into `chain.db`, and serves the explorer. Leave it
 running - it keeps following the tip and will roll back automatically if the chain
-forks. You will see:
+forks. You will see one startup line, then a progress summary every ten seconds:
 
 ```
 live view on http://127.0.0.1:8000/live
+following the chain: tip block #14210, 14210 applied, 0 rolled back
+following the chain: tip block #14257, 14257 applied, 0 rolled back
 ```
+
+The per-block detail is in the browser; the terminal line is just so you can see it
+is alive and how far it has caught up (and, if the chain forks, the "rolled back"
+count ticks up). Press **Ctrl-C** to stop it; restart the same command any time and
+it resumes from where the database left off.
 
 ### Step 4 - open the explorer
 

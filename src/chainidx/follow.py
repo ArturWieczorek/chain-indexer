@@ -36,6 +36,15 @@ class FollowStats:
     rolled_back: int = 0
 
 
+def format_progress(height: int, applied: int, rolled_back: int) -> str:
+    """A one-line sync summary for the terminal.
+
+    Kept pure and separate so the phrasing is unit-tested, while the periodic
+    printing lives in the (coverage-omitted) live runner.
+    """
+    return f"following the chain: tip block #{height}, {applied} applied, {rolled_back} rolled back"
+
+
 class Follower:
     """Drives a ``ChainSource`` into a ``Store``."""
 
@@ -98,10 +107,7 @@ async def _main() -> None:  # pragma: no cover
             await follower.run(max_events=follower.stats.events + 100)
             tip = store.tip()
             height = tip.block_no if tip is not None else 0
-            print(
-                f"tip height {height}, applied {follower.stats.applied}, "
-                f"rolled back {follower.stats.rolled_back}"
-            )
+            print(format_progress(height, follower.stats.applied, follower.stats.rolled_back))
     finally:
         await source.close()
         store.close()
