@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.29.0] - CIP-68 asset metadata
+
+### Added
+
+- `TxOut.datum` and inline-datum decoding; `decode_cip68_datum`,
+  `reference_asset_name`, and CIP-67 label constants in `cbor_blocks`.
+- Migration 14 (`tx_out.datum`); `OutputIndexer` stores inline datums;
+  `store.cip68_metadata` resolves a user token via its reference token's datum.
+- `/assets/{policy_id}/{asset_name}` falls back to CIP-68 metadata and reports a
+  `metadata_standard`; the explorer names the standard on the metadata panel.
+
 ## [1.28.0] - CIP-25 asset metadata
 
 ### Added

@@ -386,7 +386,13 @@ def create_app(
             raise HTTPException(status_code=404, detail="asset not found")
         out = _asset_detail(detail)
         raw = store.asset_metadata(policy_id, asset_name)
-        out["metadata"] = json.loads(raw) if raw else None  # CIP-25 (chapter 46)
+        if raw:  # CIP-25 (chapter 46)
+            out["metadata"] = json.loads(raw)
+            out["metadata_standard"] = "CIP-25"
+        else:  # CIP-68 (chapter 47), from the reference token's inline datum
+            cip68 = store.cip68_metadata(policy_id, asset_name)
+            out["metadata"] = cip68
+            out["metadata_standard"] = "CIP-68" if cip68 else None
         return out
 
     @app.get("/policies/{policy_id}")

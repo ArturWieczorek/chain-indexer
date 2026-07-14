@@ -150,11 +150,74 @@ def decode_value(value: int | list[Any]) -> tuple[int, tuple[Asset, ...]]:
     return lovelace, tuple(assets)
 
 
+def _inline_datum(output: Any) -> str:
+    """The output's inline datum as hex, or ``""``.
+
+    In the Conway map form an output can carry ``key 2 = datum_option``, which is
+    ``[0, datum_hash]`` (a hash reference) or ``[1, CBORTag(24, datum_bytes)]`` (an
+    inline datum). We keep the inline datum's bytes; CIP-68 metadata rides in it.
+    """
+    if not isinstance(output, Mapping):
+        return ""
+    option = output.get(2)
+    if isinstance(option, list) and len(option) == 2 and option[0] == 1:
+        inner = option[1]
+        if isinstance(inner, cbor2.CBORTag):
+            return str(inner.value.hex())
+    return ""
+
+
 def _decode_output(output: list[Any]) -> TxOut:
     # Works for both the legacy list form [addr, value] and the Conway map form
     # {0: addr, 1: value, ...}, because both are indexed by 0 and 1.
     lovelace, assets = decode_value(output[1])
-    return TxOut(address=output[0].hex(), lovelace=lovelace, assets=assets)
+    return TxOut(
+        address=output[0].hex(), lovelace=lovelace, assets=assets, datum=_inline_datum(output)
+    )
+
+
+# CIP-67 asset-name label prefixes (4 bytes each): reference token (100), and the
+# user tokens (222 = NFT, 333 = FT). A CIP-68 asset's metadata lives on the
+# reference token that shares its name after the prefix.
+CIP67_REFERENCE = "000643b0"
+CIP67_LABELS = ("000de140", "0014df10")  # 222, 333
+
+
+def reference_asset_name(user_asset_name: str) -> str | None:
+    """The reference token name for a CIP-68 user token, or ``None`` if not one."""
+    for label in CIP67_LABELS:
+        if user_asset_name.startswith(label):
+            return CIP67_REFERENCE + user_asset_name[len(label) :]
+    return None
+
+
+def _cip68_scalar(value: Any) -> Any:
+    """A CIP-68 metadatum leaf: bytes become text if printable, else hex."""
+    if isinstance(value, bytes):
+        try:
+            text = value.decode("utf-8")
+        except UnicodeDecodeError:
+            return value.hex()
+        return text if text.isprintable() else value.hex()
+    if isinstance(value, (list, tuple)):
+        return [_cip68_scalar(v) for v in value]
+    if isinstance(value, Mapping):
+        return {str(_cip68_scalar(k)): _cip68_scalar(v) for k, v in value.items()}
+    return value
+
+
+def decode_cip68_datum(datum_hex: str) -> dict[str, Any]:
+    """Decode a CIP-68 datum's metadata map.
+
+    The datum is a Plutus constructor (CBOR tag 121 = constructor 0) whose first
+    field is the metadata map ``{field_name: value}`` with byte-string keys and
+    values. We return it as a plain, JSON-friendly dict.
+    """
+    value = cbor2.loads(bytes.fromhex(datum_hex))
+    fields = value.value if isinstance(value, cbor2.CBORTag) else value
+    if not isinstance(fields, (list, tuple)) or not fields or not isinstance(fields[0], Mapping):
+        return {}
+    return {str(_cip68_scalar(k)): _cip68_scalar(v) for k, v in fields[0].items()}
 
 
 def _decode_drep(drep: list[Any]) -> str:

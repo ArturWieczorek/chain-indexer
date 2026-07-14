@@ -29,6 +29,7 @@ import sqlite3
 from collections.abc import Sequence
 from typing import Any, Protocol
 
+from chainidx.cbor_blocks import decode_cip68_datum, reference_asset_name
 from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
     AccountState,
@@ -169,6 +170,10 @@ class Store(Protocol):
 
     def asset_metadata(self, policy_id: str, asset_name: str) -> str | None:
         """Return an asset's CIP-25 metadata as a JSON string, or ``None``."""
+        ...
+
+    def cip68_metadata(self, policy_id: str, asset_name: str) -> dict[str, Any] | None:
+        """Return a CIP-68 token's metadata from its reference token's datum."""
         ...
 
     def pools(self) -> tuple[str, ...]:
@@ -574,6 +579,14 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "  metadata   TEXT    NOT NULL"
             ")",
             "CREATE INDEX idx_asset_metadata ON asset_metadata (policy_id, asset_name)",
+        ),
+    ),
+    (
+        14,
+        (
+            # An output's inline datum (chapter 47), where CIP-68 metadata lives.
+            # It hangs off tx_out, so it rolls back with the output.
+            "ALTER TABLE tx_out ADD COLUMN datum TEXT NOT NULL DEFAULT ''",
         ),
     ),
 ]
@@ -1132,6 +1145,24 @@ class SqliteStore:
             (policy_id, asset_name),
         ).fetchone()
         return str(row["metadata"]) if row is not None else None
+
+    def cip68_metadata(self, policy_id: str, asset_name: str) -> dict[str, Any] | None:
+        # CIP-68 metadata rides on the reference token (same policy, name with the
+        # (100) prefix). We find an unspent output holding it that carries an inline
+        # datum, and decode that datum's metadata map.
+        reference = reference_asset_name(asset_name)
+        if reference is None:
+            return None
+        row = self._conn.execute(
+            "SELECT o.datum AS datum FROM ma_tx_out m JOIN tx_out o ON o.id = m.tx_out_id "
+            "WHERE m.policy_id = ? AND m.asset_name = ? AND o.consumed_by_tx_id IS NULL "
+            "AND o.datum != '' ORDER BY o.id DESC LIMIT 1",
+            (policy_id, reference),
+        ).fetchone()
+        if row is None:
+            return None
+        metadata = decode_cip68_datum(row["datum"])
+        return metadata or None
 
     def pools(self) -> tuple[str, ...]:
         # A pool counts as active if it has a registration and no retirement.

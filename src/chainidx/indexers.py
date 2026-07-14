@@ -77,8 +77,9 @@ class OutputIndexer:
     def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
         for index_no, out in enumerate(tx.outputs):
             cur = conn.execute(
-                "INSERT INTO tx_out (tx_id, block_id, index_no, address, lovelace, stake_cred) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO tx_out "
+                "(tx_id, block_id, index_no, address, lovelace, stake_cred, datum) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     tx_db_id,
                     block_id,
@@ -86,6 +87,7 @@ class OutputIndexer:
                     out.address,
                     out.lovelace,
                     stake_credential_of(out.address),
+                    out.datum,
                 ),
             )
             tx_out_id = cur.lastrowid

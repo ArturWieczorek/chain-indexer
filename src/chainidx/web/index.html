@@ -322,7 +322,7 @@
             })
             .join("");
           metaPanel =
-            `<h2>Metadata (CIP-25)</h2><div class="panel"><table>` +
+            `<h2>Metadata (${esc(a.metadata_standard || "")})</h2><div class="panel"><table>` +
             `<tr><th>Field</th><th>Value</th></tr>${rows}</table></div>`;
         }
         app.innerHTML =

@@ -144,6 +144,42 @@ def test_decode_all_conway_certificate_tags() -> None:
     assert _decode_certificates([[99, cred]]) == ()
 
 
+def test_cip68_datum_and_inline_datum_decoding() -> None:
+    from chainidx.cbor_blocks import _decode_output, decode_cip68_datum, reference_asset_name
+
+    # The reference token name for a (222) user token, and a non-CIP-68 name.
+    user = "000de140" + "6d796e6674"
+    assert reference_asset_name(user) == "000643b0" + "6d796e6674"
+    assert reference_asset_name("ffff00") is None
+
+    # A metadata map exercising every leaf kind: text bytes, non-UTF-8 bytes
+    # (hex), a non-printable control byte (hex), a list, and a nested map.
+    meta = {
+        b"name": b"CIP68 NFT",
+        b"blob": b"\xff\xfe",
+        b"ctrl": b"\x01",
+        b"files": [b"a", 1],
+        b"props": {b"k": b"v"},
+    }
+    datum_hex = cbor2.dumps(cbor2.CBORTag(121, [meta, 1])).hex()
+    md = decode_cip68_datum(datum_hex)
+    assert md["name"] == "CIP68 NFT"
+    assert md["blob"] == "fffe"  # not UTF-8 -> hex
+    assert md["ctrl"] == "01"  # not printable -> hex
+    assert md["files"] == ["a", 1]
+    assert md["props"] == {"k": "v"}
+    # A datum that is not a constructor-with-map decodes to an empty map.
+    assert decode_cip68_datum(cbor2.dumps([]).hex()) == {}
+
+    # An inline datum on a Conway map output (key 2 = [1, tag24(datum)]).
+    out = {0: b"\x00" * 29, 1: 2_000_000, 2: [1, cbor2.CBORTag(24, bytes.fromhex(datum_hex))]}
+    assert _decode_output(out).datum == datum_hex
+    # A datum hash (tag 0), no datum option, and the legacy list form: no datum.
+    assert _decode_output({0: b"\x00" * 29, 1: 5, 2: [0, b"\xaa" * 32]}).datum == ""
+    assert _decode_output({0: b"\x00" * 29, 1: 5}).datum == ""
+    assert _decode_output([b"\x00" * 29, 5]).datum == ""
+
+
 def test_decode_withdrawals() -> None:
     from chainidx.cbor_blocks import _decode_withdrawals
 

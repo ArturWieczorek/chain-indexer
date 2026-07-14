@@ -590,6 +590,53 @@ def test_cip25_asset_metadata() -> None:
     assert b["metadata"] is None
 
 
+def test_cip68_metadata_from_reference_token() -> None:
+    import cbor2
+
+    store = SqliteStore()
+    policy = "cc" * 28
+    user = "000de140" + "6d796e6674"  # (222) user token
+    ref = "000643b0" + "6d796e6674"  # (100) reference token
+    empty_user = "000de140" + "6161"  # a user token whose reference is missing
+    bad_user = "0014df10" + "6262"  # a (333) user token whose reference datum is junk
+    bad_ref = "000643b0" + "6262"
+    datum = cbor2.dumps(
+        cbor2.CBORTag(121, [{b"name": b"CIP68 NFT", b"image": b"ipfs://z"}, 1])
+    ).hex()
+    junk = cbor2.dumps([]).hex()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "mint",
+                    outputs=(
+                        TxOut("u", 2_000_000, assets=(Asset(policy, user, 1),)),
+                        TxOut("r", 2_000_000, assets=(Asset(policy, ref, 1),), datum=datum),
+                        TxOut("e", 2_000_000, assets=(Asset(policy, empty_user, 1),)),
+                        TxOut("b", 2_000_000, assets=(Asset(policy, bad_user, 1),)),
+                        TxOut("br", 2_000_000, assets=(Asset(policy, bad_ref, 1),), datum=junk),
+                    ),
+                ),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    # A user token resolves its CIP-68 metadata from the reference token's datum.
+    a = api.get(f"/assets/{policy}/{user}").json()
+    assert a["metadata_standard"] == "CIP-68"
+    assert a["metadata"]["name"] == "CIP68 NFT"
+    # The reference token itself is not a user token -> no metadata.
+    assert api.get(f"/assets/{policy}/{ref}").json()["metadata"] is None
+    # A user token with no reference token on-chain -> no metadata.
+    assert api.get(f"/assets/{policy}/{empty_user}").json()["metadata"] is None
+    # A reference datum that carries no metadata map -> no metadata.
+    assert api.get(f"/assets/{policy}/{bad_user}").json()["metadata"] is None
+
+
 def test_asset_name_decoding_and_policy_page() -> None:
     from chainidx.api import _asset_name_text
 

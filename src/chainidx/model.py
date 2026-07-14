@@ -124,6 +124,7 @@ class TxOut:
     address: str
     lovelace: int
     assets: tuple[Asset, ...] = ()
+    datum: str = ""  # inline datum CBOR (hex), or "" - carries CIP-68 metadata
 
 
 @dataclass(frozen=True)
