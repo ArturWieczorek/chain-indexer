@@ -13,11 +13,26 @@ from __future__ import annotations
 
 import click
 
+from chainidx.model import LedgerSnapshot
 from chainidx.store import SqliteStore, Store
 
 
 def _store(ctx: click.Context) -> Store:
     return SqliteStore(str(ctx.obj))
+
+
+def format_state(snapshot: LedgerSnapshot) -> list[str]:
+    """Render a ledger snapshot as lines for the terminal."""
+    lines = [
+        f"epoch:        {snapshot.epoch}",
+        f"system start: {snapshot.system_start}",
+        "protocol params:",
+    ]
+    lines += [f"  {name}: {value}" for name, value in snapshot.protocol_params.items()]
+    lines.append(f"stake pools:  {len(snapshot.stake_pools)}")
+    lines.append("live stake distribution:")
+    lines += [f"  {p.pool_id}  {p.stake * 100:.4f}%" for p in snapshot.stake_distribution]
+    return lines
 
 
 @click.group()
@@ -118,6 +133,20 @@ def governance(ctx: click.Context) -> None:
     for action in store.governance_actions():
         click.echo(f"{action}  {store.vote_tally(action)}")
     store.close()
+
+
+@main.command()
+@click.option("--socket", envvar="CARDANO_NODE_SOCKET_PATH", default="")
+@click.option("--magic", default=42, type=int)
+def state(socket: str, magic: int) -> None:  # pragma: no cover - queries a live node
+    """Read ledger state (epoch, params, live stake) via local-state-query."""
+    import asyncio
+
+    from chainidx.localstate import LocalStateClient
+
+    snapshot = asyncio.run(LocalStateClient(socket, magic).snapshot())
+    for line in format_state(snapshot):
+        click.echo(line)
 
 
 @main.command()

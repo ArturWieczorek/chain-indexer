@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.2.0] - Local-state-query
+
+### Added
+
+- `chainidx.statequery`: a from-scratch local-state-query codec (acquire / query /
+  release; era-wrapped ledger queries) with real captured result fixtures.
+- `chainidx.localstate.LocalStateClient` (integration) reading a `LedgerSnapshot`
+  (epoch, system start, protocol params, stake pools, live stake distribution).
+- `chainidx state` CLI command; `LedgerSnapshot` / `PoolStake` models.
+
 ## [1.1.0] - Explorer search by height and slot
 
 ### Added

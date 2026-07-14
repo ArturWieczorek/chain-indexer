@@ -4,9 +4,11 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from chainidx.cli import main
+from chainidx.cli import format_state, main
 from chainidx.model import (
     Block,
+    LedgerSnapshot,
+    PoolStake,
     GovActionProposal,
     GovVote,
     PoolRegistration,
@@ -99,6 +101,21 @@ def test_tx_found_and_missing(tmp_path: Path) -> None:
 
     code, _ = run(tmp_path, "tx", "ghost")
     assert code == 1
+
+
+def test_format_state_renders_a_snapshot() -> None:
+    snapshot = LedgerSnapshot(
+        epoch=76,
+        system_start="2026-07-13T20:36:52+00:00",
+        protocol_params={"min_fee_a": 44, "key_deposit": 400000},
+        stake_pools=("pool1", "pool2", "pool3"),
+        stake_distribution=(PoolStake("pool1", 0.5), PoolStake("pool2", 0.25)),
+    )
+    text = "\n".join(format_state(snapshot))
+    assert "epoch:        76" in text
+    assert "min_fee_a: 44" in text
+    assert "stake pools:  3" in text
+    assert "pool1  50.0000%" in text
 
 
 def test_balance_pools_account_governance(tmp_path: Path) -> None:

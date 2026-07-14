@@ -202,6 +202,32 @@ class TxDetail:
 
 
 @dataclass(frozen=True)
+class PoolStake:
+    """A stake pool's share of the live stake (chapter 20, from local-state-query).
+
+    ``stake`` is the pool's fraction of the total active stake, in [0, 1].
+    """
+
+    pool_id: str
+    stake: float
+
+
+@dataclass(frozen=True)
+class LedgerSnapshot:
+    """A point-in-time view of ledger state, from local-state-query (chapter 20).
+
+    This is data the chain does not carry in its blocks - the node computes it -
+    so it can only be read by querying the node's ledger state.
+    """
+
+    epoch: int
+    system_start: str
+    protocol_params: dict[str, int]
+    stake_pools: tuple[str, ...]
+    stake_distribution: tuple[PoolStake, ...]
+
+
+@dataclass(frozen=True)
 class Origin:
     """The position before the first block (the genesis boundary).
 

@@ -39,6 +39,7 @@ import cbor2
 # Node-to-client mini-protocol numbers.
 PROTOCOL_HANDSHAKE = 0
 PROTOCOL_CHAIN_SYNC = 5
+PROTOCOL_LOCAL_STATE_QUERY = 7
 
 _RESPONDER_FLAG = 0x8000
 _HEADER = struct.Struct(">IHH")
