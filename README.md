@@ -410,6 +410,31 @@ feed of chain rollbacks - something a plain block notifier cannot do.
 
 ---
 
+## The HTTP API
+
+Everything the explorer shows is also a REST API on the same host and port, with
+Blockfrost-style endpoint shapes (`/blocks/latest`, `/txs/{hash}`,
+`/addresses/{addr}`, and so on), plus a kupo-style `/matches/{pattern}` and
+`/datums/{hash}`. Three ways to explore it:
+
+- **Interactive (Swagger UI):** open **http://127.0.0.1:8000/docs** (or click **API**
+  in the explorer header). Every endpoint is listed with its parameters, and **Try
+  it out** runs it live against your node and shows the real response.
+- **Alternative rendering (ReDoc):** **http://127.0.0.1:8000/redoc**.
+- **Written reference:** [`docs/API.md`](docs/API.md) documents every endpoint with
+  a real example request and a full, explained example response, and includes the
+  webhook event payloads.
+
+A quick taste with `curl`:
+
+```bash
+curl http://127.0.0.1:8000/blocks/latest
+curl http://127.0.0.1:8000/matches/addr_test1...           # a wallet's UTxOs
+curl "http://127.0.0.1:8000/matches/<policyid>?spent=all"  # every output of a policy
+```
+
+---
+
 ## Using the command line
 
 Besides the all-in-one `python -m chainidx.live`, there is a `chainidx` CLI for

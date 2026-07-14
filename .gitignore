@@ -34,3 +34,6 @@ coverage.xml
 
 # Local tooling settings, not tracked
 
+
+# local runtime config (users create their own; see README)
+config.json

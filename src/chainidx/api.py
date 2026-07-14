@@ -45,6 +45,17 @@ from chainidx.patterns import parse_pattern
 from chainidx.store import Store
 
 
+def _api_version() -> str:
+    """The installed package version, for the OpenAPI ``info.version``."""
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
+
+    try:
+        return _pkg_version("chainidx")
+    except PackageNotFoundError:  # pragma: no cover - only if run uninstalled
+        return "0"
+
+
 def _pool_display(pool_id_hex: str) -> str:
     """Pool id as bech32 (pool1...), or unchanged if it is not a hex hash."""
     try:
@@ -330,7 +341,21 @@ def create_app(
     metadata_fetcher: Callable[[str], dict[str, Any] | None] | None = None,
     ipfs_gateway: str | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="chain-indexer", description="A mini Cardano chain indexer API")
+    app = FastAPI(
+        title="chain-indexer API",
+        version=_api_version(),
+        description=(
+            "REST API for the chain-indexer: a reorg-aware Cardano indexer and "
+            "explorer. Responses are JSON. Use **Try it out** on any endpoint below "
+            "to run it live against your node.\n\n"
+            "- Interactive docs (this page): `/docs`\n"
+            "- Alternative docs (ReDoc): `/redoc`\n"
+            "- Full written reference with examples and outputs: `docs/API.md`\n"
+            "- Browsable explorer: `/`\n\n"
+            'Errors use the standard `{"detail": "..."}` body with HTTP status '
+            "codes (`404` not found, `422` bad parameter)."
+        ),
+    )
 
     @app.get("/config")
     def config() -> dict[str, Any]:
@@ -454,19 +479,61 @@ def create_app(
             "assets": [_asset_detail(a) for a in detail.assets],
         }
 
-    @app.get("/matches/{pattern}")
+    @app.get(
+        "/matches/{pattern}",
+        summary="Find outputs matching a watch pattern (kupo-style)",
+        responses={
+            200: {
+                "content": {
+                    "application/json": {
+                        "example": [
+                            {
+                                "transaction_id": "d97b618e2b3c...af",
+                                "output_index": 0,
+                                "output_reference": "d97b618e2b3c...af#0",
+                                "address": "addr_test1qz...",
+                                "value": {
+                                    "coins": 5000000,
+                                    "assets": [
+                                        {
+                                            "policy_id": "dee42126...",
+                                            "asset_name": "4368...",
+                                            "quantity": 1,
+                                        }
+                                    ],
+                                },
+                                "datum": "",
+                                "datum_hash": "",
+                                "spent": False,
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+    )
     def matches(pattern: str, spent: str = "unspent") -> list[dict[str, Any]]:
         """Look up outputs matching a watch pattern (kupo-style, chapter 64).
 
-        ``pattern`` is an address, a stake address, a policy id,
-        ``policyid.assetname``, or ``*``. ``spent`` filters by spent-ness:
-        ``unspent`` (default), ``spent``, or ``all``.
+        ``pattern`` is one of: ``*`` (everything), a bech32 address
+        (``addr_test1...``), a bech32 stake address (``stake_test1...``, matches by
+        stake credential), a policy id (56 hex), or ``policyid.assetname``.
+        ``spent`` filters by spent-ness: ``unspent`` (default), ``spent``, or
+        ``all``. Each result is an output reference with its value, datum, datum
+        hash, and spent flag.
         """
         if spent not in ("unspent", "spent", "all"):
             raise HTTPException(status_code=422, detail="spent must be unspent, spent, or all")
         return [_match(m) for m in store.matches(parse_pattern(pattern), spent)]
 
-    @app.get("/datums/{datum_hash}")
+    @app.get(
+        "/datums/{datum_hash}",
+        summary="Fetch a datum by its hash (kupo-style)",
+        responses={
+            200: {"content": {"application/json": {"example": {"datum": "d8799f...ff"}}}},
+            404: {"content": {"application/json": {"example": {"detail": "datum not found"}}}},
+        },
+    )
     def datum(datum_hash: str) -> dict[str, Any]:
         """Return the datum bytes for a hash (kupo-style, chapter 67).
 
