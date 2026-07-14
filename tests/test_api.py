@@ -209,6 +209,39 @@ def test_datums_endpoint_returns_inline_datum_by_hash() -> None:
     assert api.get("/datums/unknown").status_code == 404
 
 
+def test_scripts_endpoint_returns_reference_script_by_hash() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    outputs=(
+                        TxOut(
+                            "s",
+                            2_000_000,
+                            reference_script_hash="bb7d",
+                            reference_script_type="plutusV3",
+                            reference_script="8203aa",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    assert api.get("/scripts/bb7d").json() == {
+        "script_hash": "bb7d",
+        "type": "plutusV3",
+        "cbor": "8203aa",
+    }
+    assert api.get("/scripts/unknown").status_code == 404
+
+
 def test_config_endpoint_exposes_ipfs_gateway() -> None:
     store = SqliteStore()
     assert TestClient(create_app(store)).get("/config").json() == {"ipfs_gateway": None}

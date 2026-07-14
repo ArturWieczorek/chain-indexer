@@ -95,6 +95,10 @@ def _blake2b_256(data: bytes) -> str:
     return hashlib.blake2b(data, digest_size=32).hexdigest()
 
 
+def _blake2b_224(data: bytes) -> str:
+    return hashlib.blake2b(data, digest_size=28).hexdigest()
+
+
 def _read_array_header(reader: io.BytesIO) -> int:
     """Read a CBOR array header and return the element count.
 
@@ -173,17 +177,61 @@ def _datum_option(output: Any) -> tuple[str, str]:
     return "", ""
 
 
+# Reference-script language tags (output map key 3, the inner ``[tag, script]``):
+# 0 = native, 1/2/3 = Plutus V1/V2/V3. The script hash is the blake2b-224 of the
+# language byte followed by the serialized script - for a native script the
+# original CBOR of the script term, for Plutus the raw script bytes.
+_SCRIPT_TYPES = {0: "native", 1: "plutusV1", 2: "plutusV2", 3: "plutusV3"}
+
+
+def _reference_script(output: Any) -> tuple[str, str, str]:
+    """The output's reference script as ``(hash, type, cbor_hex)``, or ``("","","")``.
+
+    The reference script (Conway output map key 3) is ``#6.24(bytes .cbor script)``
+    where ``script = [tag, body]``. We hash it the way the ledger does, verified
+    byte-for-byte against real script addresses: ``blake2b-224(langbyte || body)``,
+    where for a native script ``body`` is its original CBOR bytes and for Plutus it
+    is the raw script bytes.
+    """
+    if not isinstance(output, Mapping):
+        return "", "", ""
+    ref = output.get(3)
+    if not isinstance(ref, cbor2.CBORTag) or ref.tag != 24:
+        return "", "", ""
+    inner = ref.value  # CBOR of [tag, body]; the 2-element array header is one byte
+    try:
+        script = cbor2.loads(inner)
+    except cbor2.CBORDecodeError:
+        return "", "", ""
+    if not isinstance(script, list) or len(script) != 2 or script[0] not in _SCRIPT_TYPES:
+        return "", "", ""
+    tag = script[0]
+    if tag == 0:
+        # Native: hash the language byte + the script term's original CBOR bytes
+        # (inner without its `[` array header and the one-byte tag), byte-exact.
+        digest = _blake2b_224(b"\x00" + inner[2:])
+    elif isinstance(script[1], (bytes, bytearray)):
+        digest = _blake2b_224(bytes([tag]) + bytes(script[1]))
+    else:
+        return "", "", ""
+    return digest, _SCRIPT_TYPES[tag], inner.hex()
+
+
 def _decode_output(output: list[Any]) -> TxOut:
     # Works for both the legacy list form [addr, value] and the Conway map form
     # {0: addr, 1: value, ...}, because both are indexed by 0 and 1.
     lovelace, assets = decode_value(output[1])
     datum, datum_hash = _datum_option(output)
+    script_hash, script_type, script_cbor = _reference_script(output)
     return TxOut(
         address=output[0].hex(),
         lovelace=lovelace,
         assets=assets,
         datum=datum,
         datum_hash=datum_hash,
+        reference_script_hash=script_hash,
+        reference_script_type=script_type,
+        reference_script=script_cbor,
     )
 
 

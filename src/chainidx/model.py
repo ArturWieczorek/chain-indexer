@@ -157,6 +157,9 @@ class TxOut:
     assets: tuple[Asset, ...] = ()
     datum: str = ""  # inline datum CBOR (hex), or "" - carries CIP-68 metadata
     datum_hash: str = ""  # the datum's blake2b-256 hash (hex), inline or by-reference
+    reference_script_hash: str = ""  # blake2b-224 of the output's reference script
+    reference_script_type: str = ""  # native / plutusV1 / plutusV2 / plutusV3
+    reference_script: str = ""  # the reference script's [tag, body] CBOR (hex)
 
 
 @dataclass(frozen=True)

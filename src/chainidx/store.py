@@ -112,6 +112,10 @@ class Store(Protocol):
         """Return the datum bytes (hex) for a hash we have seen inline, or ``None``."""
         ...
 
+    def get_script(self, script_hash: str) -> tuple[str, str] | None:
+        """Return ``(type, cbor_hex)`` for a reference script hash, or ``None``."""
+        ...
+
     def rollback_to(self, point: Point | None) -> list[str]:
         """Undo every block after ``point``; return removed hashes, newest-first."""
         ...
@@ -675,6 +679,17 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_tx_out_datum_hash ON tx_out (datum_hash)",
         ),
     ),
+    (
+        20,
+        (
+            # An output's reference script (chapter 73), for kupo-style script
+            # lookup: its blake2b-224 hash, its language, and its CBOR.
+            "ALTER TABLE tx_out ADD COLUMN ref_script_hash TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE tx_out ADD COLUMN ref_script_type TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE tx_out ADD COLUMN ref_script TEXT NOT NULL DEFAULT ''",
+            "CREATE INDEX idx_tx_out_ref_script ON tx_out (ref_script_hash)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -822,7 +837,7 @@ class SqliteStore:
 
     def utxos(self, address: str) -> tuple[TxOut, ...]:
         rows = self._conn.execute(
-            "SELECT id, address, lovelace, datum_hash FROM tx_out "
+            "SELECT id, address, lovelace, datum_hash, ref_script_hash FROM tx_out "
             "WHERE address = ? AND consumed_by_tx_id IS NULL ORDER BY id",
             (address,),
         ).fetchall()
@@ -843,6 +858,7 @@ class SqliteStore:
                     lovelace=r["lovelace"],
                     assets=assets,
                     datum_hash=r["datum_hash"] or "",
+                    reference_script_hash=r["ref_script_hash"] or "",
                 )
             )
         return tuple(outputs)
@@ -926,6 +942,14 @@ class SqliteStore:
             (datum_hash,),
         ).fetchone()
         return str(row["datum"]) if row is not None else None
+
+    def get_script(self, script_hash: str) -> tuple[str, str] | None:
+        """Return ``(type, cbor_hex)`` for a reference script hash, or ``None``."""
+        row = self._conn.execute(
+            "SELECT ref_script_type, ref_script FROM tx_out WHERE ref_script_hash = ? LIMIT 1",
+            (script_hash,),
+        ).fetchone()
+        return (str(row["ref_script_type"]), str(row["ref_script"])) if row is not None else None
 
     def rollback_to(self, point: Point | None) -> list[str]:
         """Undo every block after ``point`` and return the removed hashes.
@@ -1096,7 +1120,7 @@ class SqliteStore:
         if row is None:
             return None
         out_rows = self._conn.execute(
-            "SELECT id, address, lovelace, datum_hash FROM tx_out "
+            "SELECT id, address, lovelace, datum_hash, ref_script_hash FROM tx_out "
             "WHERE tx_id = ? ORDER BY index_no",
             (row["id"],),
         ).fetchall()
@@ -1106,6 +1130,7 @@ class SqliteStore:
                 lovelace=r["lovelace"],
                 assets=self._assets_of_output(r["id"]),
                 datum_hash=r["datum_hash"] or "",
+                reference_script_hash=r["ref_script_hash"] or "",
             )
             for r in out_rows
         )

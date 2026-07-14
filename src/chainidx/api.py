@@ -151,6 +151,7 @@ def _output(output: TxOut) -> dict[str, Any]:
         "lovelace": output.lovelace,
         "assets": [_asset(a) for a in output.assets],
         "datum_hash": output.datum_hash,
+        "reference_script_hash": output.reference_script_hash,
     }
 
 
@@ -558,6 +559,34 @@ def create_app(
         if found is None:
             raise HTTPException(status_code=404, detail="datum not found")
         return {"datum": found}
+
+    @app.get(
+        "/scripts/{script_hash}",
+        summary="Fetch a reference script by its hash (kupo-style)",
+        responses={
+            200: {
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "script_hash": "bb7d4c3f4a6fa571b8bedd2be462c866...",
+                            "type": "plutusV3",
+                            "cbor": "8203587a5878...",
+                        }
+                    }
+                }
+            },
+        },
+    )
+    def script(script_hash: str) -> dict[str, Any]:
+        """Return a reference script (its language and CBOR) by its hash (chapter 73).
+
+        Only scripts seen as an output's reference script are known; a hash never
+        seen that way is a 404.
+        """
+        found = store.get_script(script_hash)
+        if found is None:
+            raise HTTPException(status_code=404, detail="script not found")
+        return {"script_hash": script_hash, "type": found[0], "cbor": found[1]}
 
     @app.get("/pools")
     def pools() -> list[dict[str, Any]]:

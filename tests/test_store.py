@@ -313,3 +313,31 @@ def test_get_datum_and_datum_hash_on_matches() -> None:
     assert hit[0].datum == "d87980"
     assert hit[0].datum_hash == "ab12"
     store.close()
+
+
+def test_get_script_by_hash() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        block(
+            1,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    outputs=(
+                        TxOut(
+                            "addrS",
+                            2_000_000,
+                            reference_script_hash="bb7d",
+                            reference_script_type="plutusV3",
+                            reference_script="8203aa",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+    assert store.get_script("bb7d") == ("plutusV3", "8203aa")
+    assert store.get_script("nope") is None
+    store.close()

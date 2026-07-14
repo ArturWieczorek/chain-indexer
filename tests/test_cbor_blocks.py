@@ -189,6 +189,51 @@ def test_cip68_datum_and_inline_datum_decoding() -> None:
     assert _decode_output([b"\x00" * 29, 5]).datum == ""
 
 
+def test_reference_script_hash_matches_real_scripts() -> None:
+    from chainidx.cbor_blocks import _decode_output
+
+    # A real Plutus V3 script; its hash is the one embedded in its script address
+    # (verified against a cardano-cli-produced addr_test1w... address).
+    plutus_cbor = bytes.fromhex(
+        "587a587801010029800aba2aba1aab9eaab9dab9a4888896600264646644b30013370e9001180"
+        "31baa00289919912cc004cdc3a400060126ea8006266e3cdca1bae300b006375c601660146ea8"
+        "0062c8040c024004c024c028004c01cdd5001459005180318038009803001180300098019baa0"
+        "068a4d13656400401"
+    )
+    body = cbor2.loads(plutus_cbor)  # unwrap the .plutus envelope's outer bytestring
+    out = {0: b"\x00" * 29, 1: 2_000_000, 3: cbor2.CBORTag(24, cbor2.dumps([3, body]))}
+    decoded = _decode_output(out)
+    assert decoded.reference_script_type == "plutusV3"
+    assert (
+        decoded.reference_script_hash == "bb7d4c3f4a6fa571b8bedd2be462c8661517d5e80dca2589a432be25"
+    )
+
+    # A real native script (all [ sig, before ]); its hash is its policy id.
+    key_hash = bytes.fromhex("e03059ef8ed37ed93ee9b300f57945e154ba064f80b1405443b53b3e")
+    native = [1, [[0, key_hash], [5, 61845]]]  # all=1, sig=0, invalid-hereafter=5
+    out2 = {0: b"\x00" * 29, 1: 2_000_000, 3: cbor2.CBORTag(24, cbor2.dumps([0, native]))}
+    decoded2 = _decode_output(out2)
+    assert decoded2.reference_script_type == "native"
+    assert (
+        decoded2.reference_script_hash == "8324eb97b78b57f152d109d435e4ec3f6da862074c2ed81eb31ec5bb"
+    )
+
+    # No reference script, and every malformed shape: empty result, no crash.
+    base = {0: b"\x00" * 29, 1: 5}
+    assert _decode_output(base).reference_script_hash == ""  # no key 3
+    assert _decode_output({**base, 3: b"notatag"}).reference_script_hash == ""  # not a tag 24
+    assert (
+        _decode_output({**base, 3: cbor2.CBORTag(24, b"\x82\x00")}).reference_script == ""
+    )  # bad cbor
+    assert (
+        _decode_output({**base, 3: cbor2.CBORTag(24, cbor2.dumps([99, b"x"]))}).reference_script
+        == ""
+    )  # unknown tag
+    assert (
+        _decode_output({**base, 3: cbor2.CBORTag(24, cbor2.dumps([3, 123]))}).reference_script == ""
+    )  # plutus body not bytes
+
+
 def test_decode_mint_field() -> None:
     from chainidx.cbor_blocks import _decode_mint
 
