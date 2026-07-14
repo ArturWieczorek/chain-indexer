@@ -522,6 +522,29 @@ always wins over the file - handy for a one-off override without editing the con
 
 ---
 
+## Configuration reference
+
+Every field of `config.json`, its environment-variable override, and its default.
+The environment always wins over the file.
+
+| Field | Env var | Default | What it does |
+| --- | --- | --- | --- |
+| `socket_path` | `CARDANO_NODE_SOCKET_PATH` | `""` | The node's socket to connect to. |
+| `network_magic` | `CHAINIDX_MAGIC` | `42` | Network id: 42 local, 1 preprod, 2 preview, 764824073 mainnet. |
+| `genesis_path` | `CHAINIDX_GENESIS` | `""` | Shelley `genesis.json`, for slot/epoch/time math. |
+| `host` | `CHAINIDX_HOST` | `127.0.0.1` | Address the explorer/API binds to (`0.0.0.0` to expose it). |
+| `port` | `CHAINIDX_PORT` | `8000` | Port to serve on (change it to run several networks at once). |
+| `db_path` | `CHAINIDX_DB` | `chain.db` | SQLite file (relative to where you launch it). |
+| `postgres_dsn` | `CHAINIDX_POSTGRES_DSN` | `""` | If set, use Postgres instead of SQLite (a libpq DSN). |
+| `fetch_metadata` | `CHAINIDX_FETCH_METADATA` | `false` | Fetch off-chain pool metadata (name/ticker). |
+| `ipfs_gateway` | `CHAINIDX_IPFS_GATEWAY` | `""` | Gateway to render `ipfs://` NFT images through. |
+| `stake_history` | `CHAINIDX_STAKE_HISTORY` | `false` | Record per-epoch live stake for the pool charts. |
+| `features` | (file only) | all on | Which optional indexers run (see [Optional features](#optional-features)). |
+| `webhooks` | (file only) | `[]` | Webhook sinks, shorthand (see below). |
+| `sinks` | (file only) | `[]` | Event sinks: `log` / `file` / `webhook` (see below). |
+
+---
+
 ## Watching and reacting (kupo + adder style)
 
 Two focused Cardano tools inspired parts of this project, and both capabilities are
@@ -667,11 +690,33 @@ curl "http://127.0.0.1:8000/matches/<policyid>?spent=all"  # every output of a p
 Besides the all-in-one `python -m chainidx.live`, there is a `chainidx` CLI for
 one-off queries and actions. Point it at a database (or a live node) and ask:
 
+There are twelve commands. Queries read the database (`--db`, default `chain.db`);
+the rest talk to a live node (`--socket`, `--magic`).
+
+| Command | What it does |
+| --- | --- |
+| `tip` | the latest indexed block |
+| `block <hash>` | a block's slot, prev-hash, and tx count |
+| `tx <hash>` | a transaction's inputs and outputs |
+| `balance <address>` | an address's lovelace balance |
+| `pools` | registered stake pools |
+| `account <stake_addr>` | a stake account's registration and delegation |
+| `governance` | governance actions and their vote tallies |
+| `state` | live ledger state (epoch, params, stake) via local-state-query |
+| `submit <tx_file>` | submit a signed tx over our own local-tx-submission |
+| `follow` | follow a live chain and index it into the database |
+| `events` | tail the live event stream as JSON lines (filterable) |
+| `run --config <file>` | run the whole thing (follower + explorer + live + sinks) |
+
 ```bash
 # queries against the indexed database
 chainidx --db chain.db tip                 # the latest indexed block
-chainidx --db chain.db pools               # registered pools
+chainidx --db chain.db block <hash>        # a block by hash
+chainidx --db chain.db tx <hash>           # a transaction's inputs/outputs
 chainidx --db chain.db balance <address>   # an address balance
+chainidx --db chain.db account <stake>     # registration + delegation
+chainidx --db chain.db pools               # registered pools
+chainidx --db chain.db governance          # gov actions + vote tallies
 
 # read live ledger state from the node (local-state-query)
 chainidx state --socket /path/to/node.socket --magic 42
