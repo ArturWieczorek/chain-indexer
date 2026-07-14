@@ -17,8 +17,9 @@ mainnet, and it can store into either **SQLite** (zero setup) or **Postgres** (f
 scale).
 
 If you just want to run it, jump to [Getting started](#getting-started-from-zero).
-If you want to understand how it is built, it is also a step-by-step, test-driven
-**course** - see [The course](#the-course).
+For a map of the moving parts, see [How it works](#how-it-works-the-architecture).
+And because it was built as a step-by-step, test-driven **course**, you can also
+read it chapter by chapter - see [The course](#the-course).
 
 ## What it looks like
 
@@ -62,6 +63,79 @@ come from the chain-sync mini-protocol.
 
 ---
 
+## How it works (the architecture)
+
+The design is a straight pipeline - **source -> decode -> indexers -> store** - with
+a query layer reading the store and an event bus tapping the stream. Here is the
+whole journey of a single block, and which module owns each step.
+
+### The life of a block
+
+1. **The wire.** A `cardano-node` speaks the Ouroboros node-to-client protocol over
+   a local socket: several independent "mini-protocols" multiplexed onto one
+   connection. `mux.py` frames and routes them; each mini-protocol is its own small
+   module (see the table). `chainsync.py` is the one that streams blocks.
+2. **The source.** `source.py` defines a `ChainSource` interface - "give me the next
+   `RollForward` / `RollBackward`" - so the rest of the code never touches wire
+   bytes. There are two implementations: `node.py` (our own hand-written client) and
+   `ogmios.py` (a bridge to the Ogmios server, used early in the course).
+3. **Decode.** A block arrives as CBOR. `cbor_blocks.py` decodes it into the plain,
+   typed values in `model.py` (`Block`, `Tx`, `TxOut`, certificates, and so on) -
+   hashing bytes exactly so ids match the real chain.
+4. **The follower.** `follow.py` is the sync loop. On start it **resumes** (agrees
+   with the node on the newest block they share), then pulls events forever: a
+   `RollForward` is indexed, a `RollBackward` runs the reorg engine. It keeps a
+   running tally (that is the terminal progress line).
+5. **The indexers.** `indexers.py` is a pipeline of small, single-purpose writers -
+   one for outputs and balances, one for certificates, one for governance, one for
+   mints, and so on. Each turns a decoded block into rows. New data domains are new
+   indexers; which optional ones run is the `features` config.
+6. **The store.** `store.py` owns the schema, the versioned migrations, and every
+   query. `SqliteStore` is the default; `postgresstore.py` is the same logic over
+   Postgres through a thin adapter. Both sit behind one `Store` interface, so the
+   API, CLI, and explorer neither know nor care which is in use.
+7. **The reorg engine.** The genuinely hard part, and it lives in the store's
+   `rollback_to`: every indexed row carries a `block_id`, so undoing a fork is
+   "delete the rows above block X, leaf table first". New tables roll back for free
+   because they follow the same rule.
+
+### Reading it back, and the live stream
+
+- **`event.py`** is an event bus. As the follower indexes, it publishes typed events
+  (a block, a delegation, a rollback). Consumers subscribe; today the live view is
+  one, and webhooks are being added.
+- **`api.py`** is the REST API (FastAPI): Blockfrost-shaped endpoints over the store,
+  including a kupo-style `/matches/{pattern}` output lookup.
+- **`explorer.py`** serves the browsable web explorer; **`live.py`** adds the `/live`
+  WebSocket page (fed by the event bus) and is also the all-in-one runner that wires
+  the follower, the store, and the server together.
+- **`cli.py`** is the `chainidx` command line for one-off queries and node actions.
+- **`localstate.py`**, **`mempoolclient.py`**, **`txsubmitclient.py`** use the other
+  mini-protocols to read live ledger state, watch the mempool, and submit
+  transactions.
+
+### The five mini-protocols (all hand-written)
+
+| Module | Mini-protocol | What it does |
+| --- | --- | --- |
+| `handshake.py` | handshake | negotiate the protocol version on connect |
+| `chainsync.py` | chain-sync | stream blocks (RollForward / RollBackward) |
+| `statequery.py` | local-state-query | read current ledger state (stake, params) |
+| `txsubmit.py` | local-tx-submission | submit a signed transaction to the node |
+| `txmonitor.py` | local-tx-monitor | inspect the node's mempool |
+
+### The four design seams
+
+These are the extension points the whole thing is built around, so it can grow
+toward db-sync without rewrites:
+
+1. **Block-keyed rollback** - every row has a `block_id`; reorgs delete by it.
+2. **A pluggable indexer pipeline** - new data domains are new indexer modules.
+3. **A `Store` interface** - SQLite or Postgres behind the same methods.
+4. **An event bus** - indexers publish; the live view and webhooks consume.
+
+---
+
 ## Getting started from zero
 
 This walks you from "I have a `cardano-node` running" to "I have an indexer and an
@@ -97,8 +171,9 @@ source .venv/bin/activate
 pip install -e ".[chain]"
 ```
 
-That is enough to run against a node using **SQLite**. (For Postgres, see
-[Step 3b](#step-3b---postgres-instead).)
+That is enough to run against a node using **SQLite**. If you want Postgres instead,
+you will install one more package in [Step 3](#step-3---start-the-indexer) - it is a
+choice you make there, not extra setup now.
 
 ### Step 2 - write a config file
 
@@ -123,22 +198,74 @@ repo (change the paths to match your node):
   - mainnet: `764824073`
 - **`genesis_path`** - the network's `shelley-genesis.json` (used to turn slots
   into dates and epochs).
-- **`db_path`** - where the SQLite database file goes. A bare name like `chain.db`
-  is created **in the directory you run the indexer from** (so `chain-indexer/chain.db`
-  if you launch it from the repo). Give an absolute path like
-  `/var/lib/chainidx/chain.db` if you want it somewhere fixed. The file is created on
-  first run; delete it to start indexing from scratch.
+- **`db_path`** - where the SQLite database file goes (`chain.db` is fine). It is
+  created on first run; delete it to start indexing from scratch.
 
-### Step 3 - start the indexer (SQLite)
+> **One rule about paths:** every relative path here - `db_path`, `genesis_path`,
+> even the `config.json` you pass to `CHAINIDX_CONFIG` - is resolved from **the
+> directory you launch the command in**, not from where the file sits. So a bare
+> `chain.db` launched from the repo becomes `chain-indexer/chain.db`. If you would
+> rather not think about it, use absolute paths like `/var/lib/chainidx/chain.db`.
+
+### Step 3 - start the indexer
+
+The indexer stores into one of two databases: **SQLite** (the default, nothing to
+install) or **Postgres** (for scale and shared readers). Pick one below - they use
+the exact same code and give the exact same explorer, so you can switch later by
+editing a single config field. If you are not sure, use SQLite; the
+[Choosing a database](#choosing-a-database-sqlite-or-postgres) section explains why.
+
+**Option A - SQLite (default, zero setup):** you already have everything. Just start
+it:
 
 ```bash
 CHAINIDX_CONFIG=config.json python -m chainidx.live
 ```
 
-That one command does everything: it connects to the node, follows the chain from
-the beginning, writes blocks into `chain.db`, and serves the explorer. Leave it
-running - it keeps following the tip and will roll back automatically if the chain
-forks. You will see one startup line, then a progress summary every ten seconds:
+**Option B - Postgres:** install the driver and create an empty database (the
+indexer makes the tables itself), then point the config at it:
+
+```bash
+pip install -e ".[chain,postgres]"   # the Postgres driver
+createdb chainidx                     # an empty database
+```
+
+Add `postgres_dsn` to your `config.json` - when it is present, Postgres is used and
+`db_path` is ignored - then start it with the same command as Option A:
+
+```json
+{
+  "socket_path": "/path/to/node.socket",
+  "network_magic": 42,
+  "genesis_path": "/path/to/shelley-genesis.json",
+  "postgres_dsn": "dbname=chainidx"
+}
+```
+
+That bare `dbname=chainidx` works for a local, password-less server on the default
+port. For anything else, the DSN is a standard PostgreSQL (libpq) connection string,
+so it already carries whatever your server needs - no code changes:
+
+```json
+{ "postgres_dsn": "host=db.example.com port=5544 dbname=chainidx user=alice password=secret sslmode=require" }
+```
+
+- **`host`** / **`port`** - where the server is (omit for local on port `5432`).
+- **`user`** / **`password`** - the login (omit if your server trusts you without a
+  password, like a local peer-authenticated setup).
+- **`sslmode=require`** - for a remote server that expects TLS.
+
+> **Keeping the password out of the file.** Every setting can also come from an
+> environment variable, which wins over the file. So leave the password out of
+> `config.json` and pass the DSN at start time:
+> `CHAINIDX_POSTGRES_DSN="host=... password=secret" CHAINIDX_CONFIG=config.json python -m chainidx.live`.
+> (libpq's own `PGPASSWORD` and `~/.pgpass` work too - it is a normal PostgreSQL client.)
+
+**Whichever you chose,** that one command does everything: it connects to the node,
+follows the chain from the beginning, writes blocks down, and serves the explorer.
+Leave it running - it keeps following the tip and rolls back automatically if the
+chain forks. You will see one startup line, then a progress summary every ten
+seconds:
 
 ```
 live view on http://127.0.0.1:8000/live
@@ -153,64 +280,16 @@ it resumes from where the database left off.
 
 ### Step 4 - open the explorer
 
-Open **http://127.0.0.1:8000/** in your browser. Blocks and transactions appear as
-the indexer catches up. The **live view** at **http://127.0.0.1:8000/live** shows
-new blocks arriving (and reorgs rolling back) in real time.
+Open **http://127.0.0.1:8000/** in your browser (the same page whichever database
+you chose). Blocks and transactions appear as the indexer catches up. The
+**live view** at **http://127.0.0.1:8000/live** shows new blocks arriving (and
+reorgs rolling back) in real time.
 
 > Syncing from genesis takes a while on a busy network. On a local fast cluster it
 > is a few minutes; on mainnet a full from-genesis sync is slow (see
 > [Choosing a database](#choosing-a-database-sqlite-or-postgres)).
 
 That is the whole thing. Everything below is optional.
-
-### Step 3b - Postgres instead
-
-If you want Postgres rather than SQLite (see the next section for why):
-
-```bash
-# 1. install the Postgres driver as well
-pip install -e ".[chain,postgres]"
-
-# 2. create an empty database (the indexer creates the tables itself)
-createdb chainidx
-```
-
-Then set `postgres_dsn` in your `config.json` (when it is present, Postgres is used
-and `db_path` is ignored):
-
-```json
-{
-  "socket_path": "/path/to/node.socket",
-  "network_magic": 42,
-  "genesis_path": "/path/to/shelley-genesis.json",
-  "postgres_dsn": "dbname=chainidx"
-}
-```
-
-Start it the same way: `CHAINIDX_CONFIG=config.json python -m chainidx.live`.
-
-The DSN is a standard PostgreSQL (libpq) connection string, so it already carries
-everything a non-default server needs - you do not add anything to the code. Include
-only the fields that differ from the defaults:
-
-```json
-{
-  "postgres_dsn": "host=db.example.com port=5544 dbname=chainidx user=alice password=secret sslmode=require"
-}
-```
-
-- **`host`** / **`port`** - where the server is. Omit them for a local server on the
-  default port `5432` (that is why the bare `dbname=chainidx` above works).
-- **`user`** / **`password`** - the login. Omit them if your server trusts you
-  without a password (like a local peer-authenticated setup).
-- **`sslmode=require`** - for a remote server that expects TLS.
-
-> **Keeping the password out of the file.** Any setting can also be given as an
-> environment variable, and it wins over the file. So you can leave the password out
-> of `config.json` and pass the DSN at start time instead:
-> `CHAINIDX_POSTGRES_DSN="host=... password=secret" CHAINIDX_CONFIG=config.json python -m chainidx.live`.
-> (libpq's own `PGPASSWORD` and `~/.pgpass` file work too, since it is a normal
-> PostgreSQL client.)
 
 ---
 
@@ -329,6 +408,37 @@ separate - see `chainidx --help`.
 
 ---
 
+## Troubleshooting
+
+First-run problems are almost always the node connection or the config, not the
+indexer. The most common ones:
+
+- **It exits immediately with a connection error.** The node is not running, or
+  `socket_path` is wrong. Check the node is up and that the path matches its
+  `--socket-path` exactly (the same value you would use for
+  `CARDANO_NODE_SOCKET_PATH`). The socket is a file - `ls` it to be sure it exists.
+- **The explorer loads but stays empty, and the terminal count sticks at 0.** The
+  follower connected but no blocks are arriving. Usually the node itself is not
+  synced yet (give it time), or you are pointed at a node that has no chain. If the
+  `following the chain: ... applied` count is climbing, it is working - the explorer
+  just fills in as it catches up.
+- **`address already in use` on startup.** Something is already on the port
+  (probably another indexer on `8000`). Set a different `port` in the config, or
+  stop the other one. See [Running more than one network](#running-more-than-one-network-at-once).
+- **Dates, epochs, or slots look wrong.** `network_magic` and `genesis_path` are for
+  different networks. They must match the network your node is on - magic `1` with
+  the preprod genesis, `2` with preview, and so on.
+- **`ModuleNotFoundError: psycopg` (Postgres).** The driver is not installed. Run
+  `pip install -e ".[chain,postgres]"`.
+- **How do I stop it, and does it run forever?** It follows the tip forever; press
+  **Ctrl-C** to stop. Restarting the same command resumes from the database - safe
+  to do any time.
+- **How do I start indexing from scratch?** Stop it, then delete the database: the
+  SQLite file (`rm chain.db`), or for Postgres `dropdb chainidx && createdb chainidx`.
+  Start it again and it re-syncs from the beginning.
+
+---
+
 ## What it indexes, and what it does not
 
 **It indexes** everything that arrives on-chain, reorg-aware: blocks and
@@ -356,7 +466,10 @@ Postgres indexer) and [Dolos](https://github.com/txpipe/dolos) (a lightweight
 "Cardano data node"). This project is a teaching-sized cousin: small enough to read
 in an afternoon, honest about what it does and does not do. The REST API borrows
 its endpoint shapes from [Blockfrost](https://blockfrost.io); the schema is a
-simplified subset of db-sync's tables.
+simplified subset of db-sync's tables. The `/matches/{pattern}` endpoint answers the
+"find the UTxOs matching this address or policy" question that
+[kupo](https://github.com/CardanoSolutions/kupo) is built for, reusing the index we
+already keep.
 
 ---
 
@@ -389,7 +502,8 @@ order (and checking out each tag) turns the git history into the lesson plan.
 - **ch20 onward** grow it toward a professional explorer: local-state-query and
   epochs; pools, accounts, and rewards; a full governance section; analytics;
   tokens with CIP-25/68 metadata and images; the mempool and transaction-submission
-  mini-protocols; a JSON config with feature toggles; and the Postgres backend.
+  mini-protocols; a JSON config with feature toggles; the Postgres backend; a
+  kupo-style watch/matches API; and running several networks at once.
 
 Each chapter's `README.md` explains the one idea it adds and why.
 
