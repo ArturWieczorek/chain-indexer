@@ -57,3 +57,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch51 - Off-chain pool metadata (v1.33.0)
 - [x] ch52 - Asset images (v1.34.0)
 - [x] ch53 - Favicons, theme, and colour (v1.35.0)
+- [x] ch54 - Richer recent blocks on the pool page (v1.36.0)

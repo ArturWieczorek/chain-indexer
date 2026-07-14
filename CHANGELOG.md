@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.36.0] - Richer recent blocks on the pool page
+
+### Changed
+
+- `/pools/{id}` `recent_blocks` now returns full block records (height, epoch,
+  slot, hash); the pool page shows them as a table instead of bare hashes.
+
 ## [1.35.0] - Favicons, theme, and colour
 
 ### Added

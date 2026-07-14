@@ -788,7 +788,13 @@
       async function poolDetail(id) {
         const p = await api(`/pools/${id}`);
         const blocks = (p.recent_blocks || [])
-          .map((h) => `<tr><td class="wrap">${link("block", h, h)}</td></tr>`)
+          .map(
+            (b) =>
+              `<tr><td>${link("height", b.block_no, b.block_no)}</td>` +
+              `<td>${b.epoch_no != null ? link("epoch", b.epoch_no, b.epoch_no) : "-"}</td>` +
+              `<td>${link("slot", b.slot_no, b.slot_no)}</td>` +
+              `<td class="wrap">${link("block", b.hash, short(b.hash))}</td></tr>`
+          )
           .join("");
         const meta = p.metadata_url
           ? `<a href="${esc(p.metadata_url)}" target="_blank" rel="noopener">${esc(p.metadata_url)}</a>`
@@ -850,7 +856,10 @@
                 .join("") +
               `</table></div>`
             : "") +
-          (blocks ? `<h2>Recent blocks</h2><div class="panel"><table>${blocks}</table></div>` : "");
+          (blocks
+            ? `<h2>Recent blocks</h2><div class="panel"><table>` +
+              `<tr><th>Height</th><th>Epoch</th><th>Slot</th><th>Hash</th></tr>${blocks}</table></div>`
+            : "");
       }
 
       async function epochDetail(n) {

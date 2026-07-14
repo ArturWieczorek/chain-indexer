@@ -144,6 +144,10 @@ def test_pool_detail_cost_metadata_and_blocks_chart() -> None:
     assert d["metadata_url"] == "https://x/p.json"
     by_epoch = {p["epoch_no"]: p["block_count"] for p in d["blocks_by_epoch"]}
     assert by_epoch == {0: 1, 1: 1}  # one block minted in each of epochs 0 and 1
+    # Recent blocks carry height, slot, and epoch, not just the hash.
+    assert d["recent_blocks"][0]["block_no"] == 2  # newest first
+    assert "slot_no" in d["recent_blocks"][0]
+    assert d["recent_blocks"][0]["epoch_no"] == 1
 
 
 def test_pool_detail_on_chain_details() -> None:

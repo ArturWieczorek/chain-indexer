@@ -445,7 +445,11 @@ def create_app(
         if summary is None:
             raise HTTPException(status_code=404, detail="pool not found")
         out = _pool(summary)
-        out["recent_blocks"] = store.recent_blocks_by_pool(key)
+        out["recent_blocks"] = [
+            _block(b, network)
+            for h in store.recent_blocks_by_pool(key)
+            if (b := store.get_block(h)) is not None
+        ]
         out["delegators_list"] = [_stake_display(c) for c in store.pool_delegators(key)]
         length = network.epoch_length if network is not None else 1
         out["blocks_by_epoch"] = [
