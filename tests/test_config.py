@@ -98,6 +98,14 @@ def test_webhooks_parsed_from_config() -> None:
     assert config.from_dict({"webhooks": "nope"}).webhooks == ()
 
 
+def test_sinks_parsed_from_config() -> None:
+    cfg = config.from_dict({"sinks": [{"type": "log"}, "bad", {"type": "file", "target": "x"}]})
+    assert len(cfg.sinks) == 2  # the non-dict entry is dropped
+    assert cfg.sinks[0]["type"] == "log"
+    assert config.from_dict({}).sinks == ()
+    assert config.from_dict({"sinks": "nope"}).sinks == ()
+
+
 def test_indexers_for_selects_optional_features() -> None:
     names = {type(i).__name__ for i in indexers_for(frozenset({"mints"}))}
     assert {"OutputIndexer", "InputIndexer", "MintIndexer"} <= names  # core + mints

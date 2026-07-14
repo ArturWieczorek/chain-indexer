@@ -25,8 +25,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from chainidx.event import Event, EventBus
-from chainidx.patterns import EventFilter, parse_pattern
+from chainidx.event import Event
+from chainidx.patterns import EventFilter, event_filter_from_dict
 
 
 @dataclass(frozen=True)
@@ -36,30 +36,24 @@ class WebhookSink:
     url: str
     event_filter: EventFilter
 
-
-def _normalise_address(text: str) -> str:
-    """A configured address as the raw hex the events carry (bech32 is decoded)."""
-    parsed = parse_pattern(text)
-    return parsed.value if parsed.kind == "address" else text
+    def emit(self, event: Event) -> None:  # pragma: no cover - real HTTP
+        _post(self.url, event)
 
 
 def sink_from_dict(data: dict[str, Any]) -> WebhookSink:
     """Build a `WebhookSink` from one config entry (pure).
 
-    Addresses are decoded from bech32 to the hex the `transaction` events carry;
-    policies and assets are lower-cased to match. A missing field does not filter.
+    The URL comes from ``url`` (the ``webhooks`` config shorthand) or ``target``
+    (the general ``sinks`` config); the filter is built from the shared fields.
     """
-    event_filter = EventFilter(
-        types=frozenset(data.get("types", ())),
-        addresses=frozenset(_normalise_address(a) for a in data.get("addresses", ())),
-        policies=frozenset(p.lower() for p in data.get("policies", ())),
-        assets=frozenset(a.lower() for a in data.get("assets", ())),
+    return WebhookSink(
+        url=str(data.get("url") or data.get("target", "")),
+        event_filter=event_filter_from_dict(data),
     )
-    return WebhookSink(url=str(data["url"]), event_filter=event_filter)
 
 
 def sinks_from_config(webhooks: tuple[dict[str, Any], ...]) -> list[WebhookSink]:
-    """Build every configured sink (pure)."""
+    """Build every configured webhook sink (pure)."""
     return [sink_from_dict(entry) for entry in webhooks]
 
 
@@ -81,12 +75,3 @@ def _post(url: str, event: Event) -> None:  # pragma: no cover - real HTTP
     )
     with contextlib.suppress(Exception):
         urllib.request.urlopen(request, timeout=5).close()
-
-
-async def run_sink(bus: EventBus, sink: WebhookSink) -> None:  # pragma: no cover - live loop
-    """Subscribe to the bus and POST every matching event to the sink's URL."""
-    queue = bus.subscribe()
-    while True:
-        event = await queue.get()
-        if sink.event_filter.matches(event):
-            _post(sink.url, event)

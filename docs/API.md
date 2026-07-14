@@ -1766,13 +1766,15 @@ unit tests), the body is simply `{"available": false}`.
 
 ---
 
-## Webhooks
+## Event sinks (webhooks, log, file)
 
-Webhooks are an outbound feature, not a queryable endpoint. As the indexer applies
-blocks it publishes small typed events on an internal event bus; a webhook sink
-subscribes, keeps only the events matching its filter, and POSTs each survivor as
-a JSON body to a configured URL. Because rollback (reorg) events flow through the
-same bus, a webhook can react to a chain reorganization, not just to new blocks.
+Sinks are an outbound feature, not a queryable endpoint. As the indexer applies
+blocks it publishes small typed events on an internal event bus; a sink subscribes,
+keeps only the events matching its filter, and sends each survivor somewhere.
+Because rollback (reorg) events flow through the same bus, a sink can react to a
+chain reorganization, not just to new blocks. Three sink types ship, all
+standard-library only: **webhook** (HTTP POST), **log** (print to the console), and
+**file** (append JSON Lines to a file).
 
 ### Configuration
 
@@ -1807,6 +1809,31 @@ event that lacks a field the filter constrains on cannot match it (filtering by
 address, for instance, selects only the address-bearing `transaction` events).
 Configured `addresses` may be bech32 (they are decoded to the raw hex the events
 carry); `policies` and `assets` are lower-cased to match.
+
+### The general `sinks` list (log, file, webhook)
+
+The `webhooks` array is shorthand for webhook sinks. The general form is a `sinks`
+array, where each entry has a `type` (`webhook`, `log`, or `file`), a `target` where
+relevant, and the same optional filter fields:
+
+```json
+{
+  "sinks": [
+    { "type": "log",     "types": ["rollback"] },
+    { "type": "file",    "target": "events.jsonl", "policies": ["<policyid>"] },
+    { "type": "webhook", "target": "https://example.com/hook", "addresses": ["addr_test1..."] }
+  ]
+}
+```
+
+- **`log`** - prints each matching event as one line of JSON to the console. No
+  `target`.
+- **`file`** - appends each matching event to the file at `target`, one JSON object
+  per line (JSONL): an audit trail you can replay or `grep`.
+- **`webhook`** - POSTs to `target` (the URL); identical to a `webhooks` entry.
+
+`type` defaults to `webhook`. Any number of sinks can run at once, each with its own
+filter; the `webhooks` and `sinks` lists are both honored.
 
 ### Event payloads
 

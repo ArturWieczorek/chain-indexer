@@ -466,6 +466,38 @@ makes this more than a plain block notifier:
 Because a reorg is just another event, `"types": ["rollback"]` gives you a live feed
 of chain rollbacks - the thing a naive notifier misses.
 
+### Other sinks: log and file
+
+A webhook is not the only place events can go. A general `sinks` list takes a `type`
+(and where relevant a `target`), with the same filter fields, so you can also watch
+events in a terminal or record them to a file - no network, no dependencies:
+
+```json
+{
+  "sinks": [
+    { "type": "log",     "types": ["rollback"] },
+    { "type": "file",    "target": "events.jsonl", "policies": ["<policyid>"] },
+    { "type": "webhook", "target": "https://example.com/hook", "addresses": ["addr_test1..."] }
+  ]
+}
+```
+
+- **`log`** - prints each matching event as one line of JSON to the console. Handy to
+  just see what is happening without opening the browser.
+- **`file`** - appends each matching event to `target` as JSON Lines (one object per
+  line): an audit trail you can replay or `grep` offline. For example, a line in
+  `events.jsonl`:
+
+  ```json
+  {"type": "transaction", "tx_hash": "a0b1...", "lovelace": 99500000, "mint_count": 1}
+  ```
+
+- **`webhook`** - the same POST as above; here `target` is the URL (the `webhooks`
+  list is just shorthand for this).
+
+`type` defaults to `webhook`; a `log` sink needs no `target`. You can mix as many
+sinks as you like, each with its own filter.
+
 ---
 
 ## The HTTP API

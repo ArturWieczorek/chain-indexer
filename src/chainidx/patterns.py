@@ -102,3 +102,23 @@ class EventFilter:
             (self.assets, event.get("assets", ())),
         )
         return all(not wanted or wanted.intersection(have) for wanted, have in checks)
+
+
+def _normalise_address(text: str) -> str:
+    """A configured address as the raw hex the events carry (bech32 is decoded)."""
+    parsed = parse_pattern(text)
+    return parsed.value if parsed.kind == "address" else text
+
+
+def event_filter_from_dict(data: dict[str, Any]) -> EventFilter:
+    """Build an :class:`EventFilter` from a config entry's filter fields (pure).
+
+    Addresses are decoded from bech32 to the hex the events carry; policies and
+    assets are lower-cased to match. A missing field does not constrain.
+    """
+    return EventFilter(
+        types=frozenset(str(t) for t in data.get("types", ())),
+        addresses=frozenset(_normalise_address(str(a)) for a in data.get("addresses", ())),
+        policies=frozenset(str(p).lower() for p in data.get("policies", ())),
+        assets=frozenset(str(a).lower() for a in data.get("assets", ())),
+    )

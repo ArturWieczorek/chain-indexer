@@ -39,7 +39,8 @@ class Config:
     ipfs_gateway: str = ""
     stake_history: bool = False
     features: frozenset[str] = field(default_factory=lambda: frozenset(FEATURES))
-    webhooks: tuple[dict[str, Any], ...] = ()  # adder-style event sinks (chapter 69)
+    webhooks: tuple[dict[str, Any], ...] = ()  # webhook sinks, shorthand (chapter 69)
+    sinks: tuple[dict[str, Any], ...] = ()  # general event sinks: log/file/webhook (chapter 76)
 
 
 def from_dict(data: dict[str, object]) -> Config:
@@ -56,6 +57,10 @@ def from_dict(data: dict[str, object]) -> Config:
     hooks = (
         tuple(h for h in raw_hooks if isinstance(h, dict)) if isinstance(raw_hooks, list) else ()
     )
+    raw_sinks = data.get("sinks")
+    sinks = (
+        tuple(s for s in raw_sinks if isinstance(s, dict)) if isinstance(raw_sinks, list) else ()
+    )
     return Config(
         socket_path=str(data.get("socket_path", "")),
         network_magic=int(str(data.get("network_magic", 42))),
@@ -69,6 +74,7 @@ def from_dict(data: dict[str, object]) -> Config:
         stake_history=bool(data.get("stake_history", False)),
         features=enabled,
         webhooks=hooks,
+        sinks=sinks,
     )
 
 

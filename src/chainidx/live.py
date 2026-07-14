@@ -139,15 +139,18 @@ async def _run_live(cfg: object) -> None:  # pragma: no cover
     app = create_live_app(store, bus, network, mempool_client.status_sync, fetcher, gateway)
     server = uvicorn.Server(uvicorn.Config(app, host=cfg.host, port=cfg.port, log_level="warning"))
     print(f"live view on http://{cfg.host}:{cfg.port}/live")
-    from chainidx.webhook import run_sink, sinks_from_config
+    from chainidx.sinks import Sink, build_sinks, run_sink
+    from chainidx.webhook import sinks_from_config
 
-    sinks = [run_sink(bus, sink) for sink in sinks_from_config(cfg.webhooks)]
+    # Webhook shorthand (chapter 69) plus the general log/file/webhook sinks (76).
+    all_sinks: list[Sink] = [*sinks_from_config(cfg.webhooks), *build_sinks(cfg.sinks)]
+    sink_tasks = [run_sink(bus, sink) for sink in all_sinks]
     await asyncio.gather(
         server.serve(),
         follower.run(),
         _progress_loop(store, follower),
         _snapshot_loop(store, cfg.socket_path, cfg.network_magic, cfg.stake_history),
-        *sinks,
+        *sink_tasks,
     )
 
 
