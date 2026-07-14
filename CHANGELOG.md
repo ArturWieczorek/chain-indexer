@@ -3,6 +3,39 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.62.0] - kupo-style lookups, adder-style sinks, and a public-ready polish
+
+Chapters 64-80. This release folds in the strengths of two focused Cardano tools -
+kupo's pattern lookups and adder's event outputs - reusing the index and event bus
+already built, then rounds the project off for public use.
+
+### Added
+
+- **kupo-style lookups.** `GET /matches/{pattern}` finds outputs by address, stake
+  address, policy id, `policyid.assetname`, or `*` (ch64); `GET /datums/{hash}`
+  returns an inline datum by its blake2b-256 hash (ch67); `GET /scripts/{hash}`
+  returns a reference script by its blake2b-224 hash, verified byte-for-byte against
+  real scripts (ch73). Datum and script hashes ride on every output and are
+  clickable in the explorer (ch75).
+- **adder-style event sinks.** Richer per-transaction events plus an `EventFilter`
+  (ch68); a webhook sink that POSTs filtered events, rollbacks included (ch69); and
+  general `log` and `file` (JSONL) sinks under one `sinks` config (ch76). A
+  `chainidx events` command tails the same stream as JSON lines (ch78).
+- **Operability.** Configurable `host`/`port` to run several networks at once
+  (ch65); a periodic terminal progress line (ch66); `network_magic` in `/health` and
+  `/network` (ch80); a `chainidx run --config` flag (ch79).
+- **Docs.** An interactive Swagger UI at `/docs` with an explorer link, and a full
+  written reference in `docs/API.md` (ch71).
+
+### Changed
+
+- The explorer gains a granular live feed (ch70), a Back link on every detail page
+  (ch74), readable CIP-68 asset names, and graceful handling of unreachable images
+  (ch72). The explorer pages are served `no-cache` so a restart is picked up (ch77).
+- The README is rebuilt as a thorough, beginner-friendly guide: getting a node,
+  a five-minute tour with real output, use cases, a full configuration reference,
+  the complete CLI, and an architecture map.
+
 ## [1.45.1] - Postgres backend fixes and a beginner README
 
 ### Fixed
