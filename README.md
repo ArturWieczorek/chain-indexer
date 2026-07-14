@@ -370,6 +370,66 @@ That is the whole thing. Everything below is optional.
 
 ---
 
+## A five-minute tour (real output)
+
+With the indexer running against a local cluster, here is the whole point of the
+thing in a few `curl`s. These are real responses, lightly trimmed.
+
+**Find the UTxOs at an address** - the kupo-style watch query. Point it at the
+cluster's faucet address (the one that funds everything):
+
+```bash
+FAUCET=$(cat "$STATE_DIR/shelley/genesis-utxo.addr")
+curl -s "http://127.0.0.1:8000/matches/$FAUCET" | python3 -m json.tool
+```
+
+```json
+[
+  {
+    "output_reference": "38f30f8d...7201#0",
+    "address": "addr_test1vpsjlztjzfh9qx34mtlacj642el0wlvlulc09ufddunt9zs84hhzr",
+    "value": { "coins": 2000000, "assets": [
+      { "policy_id": "dee42126...54b8", "asset_name": "436861696e4964784e4654", "quantity": 1 } ] },
+    "datum": "", "datum_hash": "", "spent": false
+  }
+]
+```
+
+Read that like a sentence: at this address there is an unspent output
+(`spent: false`) of 2 ADA that also holds one unit of the asset
+`436861696e4964784e4654` (that hex is "ChainIdxNFT") under policy `dee42126...`. The
+same UTxO `cardano-cli query utxo` would show, now queryable over HTTP by anything.
+Add `?spent=all` to include spent outputs; swap the address for a **policy id** to
+find every output holding that policy's assets, or `*` for the whole set.
+
+**Confirm which chain you are on:**
+
+```bash
+curl -s http://127.0.0.1:8000/health
+# {"status": "ok", "tip_height": 31898, "network_magic": 42}
+```
+
+`network_magic: 42` is a local cluster (it is `1` for preprod, `2` for preview,
+`764824073` for mainnet) - a one-line check that you are pointed at the right node.
+
+**Watch the chain react, in a terminal** - the same events the webhooks and `/live`
+get, as JSON lines. Great in a test: block until something happens, or catch a
+reorg.
+
+```bash
+chainidx events --socket "$CARDANO_NODE_SOCKET_PATH" --magic 42 --type transaction | jq .
+# {"type":"transaction","tx_hash":"38f30f8d...7201","block_no":19674,
+#  "policies":["dee42126...54b8"],"assets":["dee42126...54b8.436861696e4964784e4654"],
+#  "lovelace":14991019984717062,"output_count":2,"mint_count":1}
+```
+
+That line is the transaction that minted the NFT: one asset minted (`mint_count: 1`)
+under that policy. For everything else - blocks, transactions, pools, governance,
+datums, scripts - open `http://127.0.0.1:8000/docs` and click **Try it out**, or see
+the full [`docs/API.md`](docs/API.md).
+
+---
+
 ## Choosing a database: SQLite or Postgres
 
 **Short version: use SQLite unless you have a specific reason not to.**
