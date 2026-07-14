@@ -731,8 +731,22 @@
           .map((o) => link("account", o, short(o)))
           .join("<br>") || "<span class='muted'>none</span>";
         const relays = (p.relays || []).map(esc).join("<br>") || "<span class='muted'>none</span>";
+        const m = p.metadata;
+        const title = m && (m.name || m.ticker)
+          ? `${esc(m.name || "")}${m.ticker ? ` <span class="muted">[${esc(m.ticker)}]</span>` : ""}`
+          : "";
+        const metaPanel = m
+          ? `<div class="panel"><div class="kv">` +
+            (m.name ? `<div>name</div><div>${esc(m.name)}</div>` : "") +
+            (m.ticker ? `<div>ticker</div><div>${esc(m.ticker)}</div>` : "") +
+            (m.homepage ? `<div>homepage</div><div class="wrap"><a href="${esc(m.homepage)}" target="_blank" rel="noopener">${esc(m.homepage)}</a></div>` : "") +
+            (m.description ? `<div>description</div><div class="wrap">${esc(m.description)}</div>` : "") +
+            `</div></div>`
+          : "";
         app.innerHTML =
-          `<h2>Stake pool</h2><div class="panel"><div class="kv">` +
+          `<h2>Stake pool ${title}</h2>` +
+          metaPanel +
+          `<div class="panel"><div class="kv">` +
           `<div>bech32 pool id</div><div class="wrap">${esc(p.pool_id)}</div>` +
           `<div>pool id (hex)</div><div class="wrap">${esc(p.pool_id_hex || "")}</div>` +
           `<div>vrf hash</div><div class="wrap">${esc(p.vrf_hash || "") || "-"}</div>` +

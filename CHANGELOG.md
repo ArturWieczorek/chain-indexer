@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.33.0] - Off-chain pool metadata
+
+### Added
+
+- `offchain.parse_pool_metadata` (pure) and opt-in `fetch_pool_metadata` (HTTP).
+- `create_app` gains an injected `metadata_fetcher`; the pool endpoint returns
+  off-chain name/ticker/homepage when enabled (`CHAINIDX_FETCH_METADATA`), shown
+  on the pool page.
+
 ## [1.32.0] - Full pool on-chain details
 
 ### Added

@@ -31,9 +31,10 @@ def create_explorer_app(
     store: Store,
     network: NetworkParams | None = None,
     mempool_source: Callable[[], MempoolStatus] | None = None,
+    metadata_fetcher: Callable[[str], dict[str, object] | None] | None = None,
 ) -> FastAPI:
     """The API app plus the explorer page served at ``/``."""
-    app = create_app(store, network, mempool_source)
+    app = create_app(store, network, mempool_source, metadata_fetcher)
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

@@ -54,3 +54,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch48 - Richer pool detail (v1.30.0)
 - [x] ch49 - Mint transactions (v1.31.0)
 - [x] ch50 - Full pool on-chain details (v1.32.0)
+- [x] ch51 - Off-chain pool metadata (v1.33.0)

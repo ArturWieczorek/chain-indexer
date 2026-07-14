@@ -36,9 +36,10 @@ def create_live_app(
     bus: EventBus,
     network: NetworkParams | None = None,
     mempool_source: Callable[[], MempoolStatus] | None = None,
+    metadata_fetcher: Callable[[str], dict[str, object] | None] | None = None,
 ) -> FastAPI:
     """The explorer app plus a ``/live`` page and a ``/stream`` WebSocket."""
-    app = create_explorer_app(store, network, mempool_source)
+    app = create_explorer_app(store, network, mempool_source, metadata_fetcher)
 
     @app.get("/live", response_class=HTMLResponse)
     def live_page() -> str:
@@ -83,6 +84,7 @@ async def _snapshot_loop(store: Store, socket_path: str, magic: int) -> None:  #
 
 async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: no cover
     import asyncio
+    import os
 
     import uvicorn
 
@@ -90,6 +92,7 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     from chainidx.follow import Follower
     from chainidx.mempoolclient import MempoolClient
     from chainidx.node import NodeSource
+    from chainidx.offchain import fetch_pool_metadata
     from chainidx.store import SqliteStore
 
     store = SqliteStore(db)
@@ -97,7 +100,8 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     source = NodeSource(socket_path, magic)
     follower = Follower(source, store, bus=bus)
     mempool_client = MempoolClient(socket_path, magic)
-    app = create_live_app(store, bus, load_network(), mempool_client.status_sync)
+    fetcher = fetch_pool_metadata if os.environ.get("CHAINIDX_FETCH_METADATA") else None
+    app = create_live_app(store, bus, load_network(), mempool_client.status_sync, fetcher)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
     print("live view on http://127.0.0.1:8000/live")
     await asyncio.gather(server.serve(), follower.run(), _snapshot_loop(store, socket_path, magic))

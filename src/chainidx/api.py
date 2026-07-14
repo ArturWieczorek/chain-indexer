@@ -307,6 +307,7 @@ def create_app(
     store: Store,
     network: NetworkParams | None = None,
     mempool_source: Callable[[], MempoolStatus] | None = None,
+    metadata_fetcher: Callable[[str], dict[str, Any] | None] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="chain-indexer", description="A mini Cardano chain indexer API")
 
@@ -445,6 +446,11 @@ def create_app(
         ]
         if network is not None and summary.registered_slot >= 0:
             out["registered_time"] = network.slot_time(summary.registered_slot)
+        # Off-chain metadata (name/ticker/homepage), fetched only when enabled.
+        if metadata_fetcher is not None and summary.metadata_url:
+            fetched = metadata_fetcher(summary.metadata_url)
+            if fetched:
+                out["metadata"] = fetched
         return out
 
     @app.get("/accounts/{stake_address}")

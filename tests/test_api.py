@@ -171,6 +171,22 @@ def test_pool_detail_on_chain_details() -> None:
     assert "registered_time" in d  # derived from the registration block's slot
 
 
+def test_pool_offchain_metadata_fetched_when_enabled() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration("poolM", 1000, 0.02, "e0" + "11" * 28, metadata_url="http://x/p.json")
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", issuer="poolM", txs=(Tx("t1", certificates=(reg,)),))
+    )
+    # With a fetcher, the off-chain name/ticker appear.
+    fetched = {"name": "Fetched Pool", "ticker": "FTCH"}
+    d = TestClient(create_app(store, None, None, lambda _url: fetched)).get("/pools/poolM").json()
+    assert d["metadata"] == fetched
+    # A fetcher that returns nothing, and no fetcher at all, add no metadata.
+    d2 = TestClient(create_app(store, None, None, lambda _url: None)).get("/pools/poolM").json()
+    assert "metadata" not in d2
+    assert "metadata" not in TestClient(create_app(store)).get("/pools/poolM").json()
+
+
 def test_stake_display_helper() -> None:
     from chainidx.api import _stake_display
 
