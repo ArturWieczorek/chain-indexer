@@ -51,3 +51,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch45 - Submitting transactions (local-tx-submission) (v1.27.0)
 - [x] ch46 - CIP-25 asset metadata (v1.28.0)
 - [x] ch47 - CIP-68 asset metadata (v1.29.0)
+- [x] ch48 - Richer pool detail (v1.30.0)

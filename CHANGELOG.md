@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.30.0] - Richer pool detail
+
+### Added
+
+- Pool `cost` and `metadata_url` decoded from the registration certificate;
+  `PoolRegistration`/`PoolSummary` carry them; migration 15 stores them.
+- `store.pool_blocks_by_epoch`; `/pools/{id}` returns cost, metadata URL, and a
+  blocks-per-epoch series; the pool page shows a blocks-per-epoch chart.
+
 ## [1.29.0] - CIP-68 asset metadata
 
 ### Added

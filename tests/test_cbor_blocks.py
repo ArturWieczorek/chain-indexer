@@ -180,6 +180,31 @@ def test_cip68_datum_and_inline_datum_decoding() -> None:
     assert _decode_output([b"\x00" * 29, 5]).datum == ""
 
 
+def test_decode_pool_registration_cost_and_metadata() -> None:
+    from chainidx.cbor_blocks import _decode_certificates
+
+    # [3, pool, vrf, pledge, cost, margin, reward, owners, relays, [url, hash]]
+    cert = [
+        3,
+        b"\x11" * 28,
+        b"\x22" * 32,
+        1000,
+        340_000_000,
+        0.03,
+        b"\xe0" + b"\x33" * 28,
+        [],
+        [],
+        ["https://example/pool.json", b"\x44" * 32],
+    ]
+    (pool,) = _decode_certificates([cert])
+    assert isinstance(pool, PoolRegistration)
+    assert pool.cost == 340_000_000
+    assert pool.metadata_url == "https://example/pool.json"
+    # A pool with no metadata anchor (null) has an empty url.
+    cert[9] = None
+    assert _decode_certificates([cert])[0].metadata_url == ""
+
+
 def test_decode_withdrawals() -> None:
     from chainidx.cbor_blocks import _decode_withdrawals
 

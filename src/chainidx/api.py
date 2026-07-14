@@ -191,6 +191,8 @@ def _pool(summary: PoolSummary) -> dict[str, Any]:
         "reward_address": _address_display(summary.reward_address),
         "live_stake": summary.live_stake,
         "saturation": summary.saturation,
+        "cost": summary.cost,
+        "metadata_url": summary.metadata_url,
     }
 
 
@@ -419,6 +421,10 @@ def create_app(
         out = _pool(summary)
         out["recent_blocks"] = store.recent_blocks_by_pool(key)
         out["delegators_list"] = [_stake_display(c) for c in store.pool_delegators(key)]
+        length = network.epoch_length if network is not None else 1
+        out["blocks_by_epoch"] = [
+            {"epoch_no": e, "block_count": n} for e, n in store.pool_blocks_by_epoch(key, length)
+        ]
         return out
 
     @app.get("/accounts/{stake_address}")

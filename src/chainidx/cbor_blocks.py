@@ -255,12 +255,17 @@ def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
                 VoteDelegation(stake_address=_credential_hash(cert[1]), drep=_decode_drep(cert[2]))
             )
         elif tag == 3:  # pool registration
+            # [3, pool, vrf, pledge, cost, margin, reward, owners, relays, meta].
+            meta = cert[9]  # [url, hash] or null
+            url = meta[0] if meta else ""
             out.append(
                 PoolRegistration(
                     pool_id=cert[1].hex(),
                     pledge=cert[3],
+                    cost=cert[4],
                     margin=float(cert[5]),
                     reward_address=cert[6].hex(),
+                    metadata_url=url.decode("utf-8", "replace") if isinstance(url, bytes) else url,
                 )
             )
         elif tag == 4:  # pool retirement: [4, pool_keyhash, epoch]

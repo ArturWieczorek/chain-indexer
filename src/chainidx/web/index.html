@@ -684,6 +684,13 @@
         const blocks = (p.recent_blocks || [])
           .map((h) => `<tr><td class="wrap">${link("block", h, h)}</td></tr>`)
           .join("");
+        const meta = p.metadata_url
+          ? `<a href="${esc(p.metadata_url)}" target="_blank" rel="noopener">${esc(p.metadata_url)}</a>`
+          : "<span class='muted'>none</span>";
+        const series = p.blocks_by_epoch || [];
+        const blocksChart = series.length
+          ? `<h2>Blocks per epoch</h2>${lineChart(series, (d) => d.block_count, (v) => `${v} blocks`)}`
+          : "";
         app.innerHTML =
           `<h2>Stake pool</h2><div class="panel"><div class="kv">` +
           `<div>pool id</div><div>${esc(p.pool_id)}</div>` +
@@ -692,9 +699,12 @@
           `<div>live stake</div><div>${(p.live_stake * 100).toFixed(3)}%</div>` +
           `<div>saturation</div><div>${(p.saturation * 100).toFixed(1)}%</div>` +
           `<div>pledge</div><div class="lovelace">${ada(p.pledge)}</div>` +
+          `<div>cost</div><div class="lovelace">${ada(p.cost || 0)}</div>` +
           `<div>margin</div><div>${(p.margin * 100).toFixed(2)}%</div>` +
+          `<div>metadata</div><div class="wrap">${meta}</div>` +
           `<div>reward address</div><div>${p.reward_address ? link("account", p.reward_address, p.reward_address) : "-"}</div>` +
           `</div></div>` +
+          blocksChart +
           ((p.delegators_list || []).length
             ? `<h2>Delegators</h2><div class="panel"><table>` +
               (p.delegators_list || [])

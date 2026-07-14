@@ -192,6 +192,10 @@ class Store(Protocol):
         """Return recent block hashes minted by a pool, newest first."""
         ...
 
+    def pool_blocks_by_epoch(self, pool_id: str, epoch_length: int) -> list[tuple[int, int]]:
+        """Return ``(epoch_no, block_count)`` for a pool's blocks, oldest first."""
+        ...
+
     def pool_delegators(self, pool_id: str, limit: int = 50) -> list[str]:
         """Return stake credentials whose latest delegation is to this pool."""
         ...
@@ -587,6 +591,14 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             # An output's inline datum (chapter 47), where CIP-68 metadata lives.
             # It hangs off tx_out, so it rolls back with the output.
             "ALTER TABLE tx_out ADD COLUMN datum TEXT NOT NULL DEFAULT ''",
+        ),
+    ),
+    (
+        15,
+        (
+            # A pool's fixed cost and off-chain metadata anchor (chapter 48).
+            "ALTER TABLE pool_registration ADD COLUMN cost INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE pool_registration ADD COLUMN metadata_url TEXT NOT NULL DEFAULT ''",
         ),
     ),
 ]
@@ -1210,7 +1222,7 @@ class SqliteStore:
 
     def _pool_summary(self, pool_id: str) -> PoolSummary:
         reg = self._conn.execute(
-            "SELECT pledge, margin, reward_addr FROM pool_registration "
+            "SELECT pledge, margin, reward_addr, cost, metadata_url FROM pool_registration "
             "WHERE pool_id = ? ORDER BY tx_id DESC LIMIT 1",
             (pool_id,),
         ).fetchone()
@@ -1237,10 +1249,21 @@ class SqliteStore:
             reward_address=reg["reward_addr"] if reg is not None else "",
             live_stake=live_stake,
             saturation=saturation,
+            cost=reg["cost"] if reg is not None else 0,
+            metadata_url=reg["metadata_url"] if reg is not None else "",
         )
 
     def pool_summaries(self) -> list[PoolSummary]:
         return [self._pool_summary(pool_id) for pool_id in self.pools()]
+
+    def pool_blocks_by_epoch(self, pool_id: str, epoch_length: int) -> list[tuple[int, int]]:
+        """Return ``(epoch_no, block_count)`` for a pool's minted blocks, oldest first."""
+        rows = self._conn.execute(
+            "SELECT slot_no / ? AS epoch_no, COUNT(*) AS n FROM block "
+            "WHERE issuer = ? GROUP BY slot_no / ? ORDER BY epoch_no",
+            (epoch_length, pool_id, epoch_length),
+        ).fetchall()
+        return [(r["epoch_no"], r["n"]) for r in rows]
 
     def pool_detail(self, pool_id: str) -> PoolSummary | None:
         if pool_id not in self.pools():

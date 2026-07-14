@@ -175,6 +175,8 @@ class PoolRegistration:
     pledge: int
     margin: float
     reward_address: str
+    cost: int = 0
+    metadata_url: str = ""  # off-chain metadata anchor (name/ticker live there)
 
 
 @dataclass(frozen=True)
@@ -432,6 +434,8 @@ class PoolSummary:
     reward_address: str
     live_stake: float = 0.0  # fraction of total active stake (ledger state, chapter 24)
     saturation: float = 0.0  # live_stake relative to the ideal 1/n_opt share
+    cost: int = 0  # the pool's fixed cost per epoch (chapter 48)
+    metadata_url: str = ""  # off-chain metadata anchor (chapter 48)
 
 
 @dataclass(frozen=True)

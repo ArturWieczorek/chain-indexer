@@ -129,6 +129,23 @@ def test_pool_detail_links_reward_address_and_delegators() -> None:
     assert detail["delegators_list"][0].startswith("stake_test1")
 
 
+def test_pool_detail_cost_metadata_and_blocks_chart() -> None:
+    store = SqliteStore()
+    reg = PoolRegistration(
+        "poolZ", 1000, 0.02, "e0" + "11" * 28, cost=340_000_000, metadata_url="https://x/p.json"
+    )
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", issuer="poolZ", txs=(Tx("t1", certificates=(reg,)),))
+    )
+    store.apply_block(Block(2, 110, "b2", "b1", issuer="poolZ", txs=()))  # a block in epoch 1
+    net = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
+    d = TestClient(create_app(store, net)).get("/pools/poolZ").json()
+    assert d["cost"] == 340_000_000
+    assert d["metadata_url"] == "https://x/p.json"
+    by_epoch = {p["epoch_no"]: p["block_count"] for p in d["blocks_by_epoch"]}
+    assert by_epoch == {0: 1, 1: 1}  # one block minted in each of epochs 0 and 1
+
+
 def test_stake_display_helper() -> None:
     from chainidx.api import _stake_display
 

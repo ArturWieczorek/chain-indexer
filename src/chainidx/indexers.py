@@ -185,8 +185,8 @@ class CertIndexer:
             elif isinstance(cert, PoolRegistration):
                 conn.execute(
                     "INSERT INTO pool_registration "
-                    "(block_id, tx_id, pool_id, pledge, margin, reward_addr) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    "(block_id, tx_id, pool_id, pledge, margin, reward_addr, cost, metadata_url) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         block_id,
                         tx_db_id,
@@ -194,6 +194,8 @@ class CertIndexer:
                         cert.pledge,
                         cert.margin,
                         cert.reward_address,
+                        cert.cost,
+                        cert.metadata_url,
                     ),
                 )
             elif isinstance(cert, PoolRetirement):
