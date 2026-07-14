@@ -162,6 +162,9 @@ def decode_block(block: cbor2.CBORTag) -> Block:
     slot_no = header_body[1]
     prev = header_body[2]
     prev_hash = prev.hex() if prev is not None else ""
+    # The issuer verification key (header_body[3]) hashes to the pool id that
+    # minted the block (chapter 22). Pool ids are 28-byte (blake2b-224) hashes.
+    issuer = hashlib.blake2b(header_body[3], digest_size=28).hexdigest()
 
     txs: list[Tx] = []
     for _ in range(_read_array_header(reader)):
@@ -176,4 +179,5 @@ def decode_block(block: cbor2.CBORTag) -> Block:
         block_hash=block_hash,
         prev_hash=prev_hash,
         txs=tuple(txs),
+        issuer=issuer,
     )

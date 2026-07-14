@@ -25,6 +25,7 @@ which decodes the full transaction body; the Ogmios path is our bootstrap.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from chainidx.model import (
@@ -116,6 +117,14 @@ def parse_tx(tx: Json) -> Tx:
     )
 
 
+def _issuer_pool_id(block: Json) -> str:
+    """The pool id that minted the block: blake2b-224 of the issuer vkey."""
+    vkey = block.get("issuer", {}).get("verificationKey")
+    if vkey is None:
+        return ""
+    return hashlib.blake2b(bytes.fromhex(vkey), digest_size=28).hexdigest()
+
+
 def parse_block(block: Json) -> Block:
     return Block(
         block_no=int(block["height"]),
@@ -123,6 +132,7 @@ def parse_block(block: Json) -> Block:
         block_hash=block["id"],
         prev_hash=block.get("ancestor", ""),
         txs=tuple(parse_tx(t) for t in block.get("transactions", [])),
+        issuer=_issuer_pool_id(block),
     )
 
 

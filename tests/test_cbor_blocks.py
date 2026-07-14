@@ -59,6 +59,12 @@ def test_decoded_transaction_has_inputs_outputs_and_certificates() -> None:
     assert pool.pledge > 0
 
 
+def test_decoded_block_records_its_issuer_pool() -> None:
+    block = decode_block(load_tag("node_block_txs.cbor"))
+    # blake2b-224 of the header issuer vkey = the pool id that minted the block.
+    assert block.issuer == "6887684e60a31bf89dcae5b58346f31a5da33f396f6a00f09daf21a0"
+
+
 def test_decode_an_empty_block() -> None:
     block = decode_block(load_tag("node_block_empty.cbor"))
     assert len(block.block_hash) == 64

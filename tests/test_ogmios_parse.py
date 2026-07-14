@@ -62,6 +62,15 @@ def test_parse_block_maps_a_real_conway_block() -> None:
     assert tx.outputs[0].lovelace > 0
 
 
+def test_parse_block_records_issuer_pool() -> None:
+    from chainidx.ogmios_parse import _issuer_pool_id, parse_block
+
+    block = parse_block(load("ogmios_block.json"))
+    assert block.issuer == "6887684e60a31bf89dcae5b58346f31a5da33f396f6a00f09daf21a0"
+    # A block with no issuer field yields an empty pool id.
+    assert _issuer_pool_id({}) == ""
+
+
 def test_parse_certificates_maps_each_kind() -> None:
     block = load("ogmios_block.json")
     certs = parse_certificates(block["transactions"][0]["certificates"])

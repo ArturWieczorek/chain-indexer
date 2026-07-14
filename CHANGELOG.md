@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.4.0] - Pools
+
+### Added
+
+- Block `issuer` (minting pool id = blake2b-224 of the header issuer key),
+  computed in the CBOR and Ogmios decoders and stored (migration 5).
+- `PoolSummary` + `store.pool_summaries`/`pool_detail`/`recent_blocks_by_pool`
+  (blocks minted, delegators, pledge, margin).
+- API `/pools` (enriched) and `/pools/{id}`; a Pools section in the explorer.
+
 ## [1.3.0] - Epochs and the dashboard
 
 ### Added

@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
-from chainidx.model import Asset, Block, EpochSummary, TxDetail, TxOut
+from chainidx.model import Asset, Block, EpochSummary, PoolSummary, TxDetail, TxOut
 from chainidx.network import NetworkParams
 from chainidx.store import Store
 
@@ -58,6 +58,17 @@ def _tx(detail: TxDetail) -> dict[str, Any]:
         "block_hash": detail.block_hash,
         "inputs": [{"tx_id": i.tx_id, "index": i.index} for i in detail.inputs],
         "outputs": [_output(o) for o in detail.outputs],
+    }
+
+
+def _pool(summary: PoolSummary) -> dict[str, Any]:
+    return {
+        "pool_id": summary.pool_id,
+        "blocks_minted": summary.blocks_minted,
+        "delegators": summary.delegators,
+        "pledge": summary.pledge,
+        "margin": summary.margin,
+        "reward_address": summary.reward_address,
     }
 
 
@@ -137,8 +148,17 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         return [_asset(a) for a in store.assets()]
 
     @app.get("/pools")
-    def pools() -> list[str]:
-        return list(store.pools())
+    def pools() -> list[dict[str, Any]]:
+        return [_pool(p) for p in store.pool_summaries()]
+
+    @app.get("/pools/{pool_id}")
+    def pool(pool_id: str) -> dict[str, Any]:
+        summary = store.pool_detail(pool_id)
+        if summary is None:
+            raise HTTPException(status_code=404, detail="pool not found")
+        out = _pool(summary)
+        out["recent_blocks"] = store.recent_blocks_by_pool(pool_id)
+        return out
 
     @app.get("/accounts/{stake_address}")
     def account(stake_address: str) -> dict[str, Any]:

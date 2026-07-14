@@ -22,6 +22,33 @@ def blk(block_no: int, block_hash: str, prev_hash: str, txs: tuple[Tx, ...]) -> 
     )
 
 
+def test_pool_summaries_and_detail() -> None:
+    store = SqliteStore()
+    certs = (
+        PoolRegistration("pool1", 1_000_000, 0.03, "stake_r"),
+        StakeRegistration("stake_a"),
+        StakeDelegation("stake_a", "pool1"),
+    )
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=(Tx("tx1", certificates=certs),), issuer="pool1"))
+    store.apply_block(Block(2, 20, "b2", "b1", txs=(), issuer="pool1"))
+
+    summaries = store.pool_summaries()
+    assert len(summaries) == 1
+    s = summaries[0]
+    assert s.pool_id == "pool1"
+    assert s.blocks_minted == 2
+    assert s.delegators == 1
+    assert s.pledge == 1_000_000
+    assert abs(s.margin - 0.03) < 1e-9
+
+    detail = store.pool_detail("pool1")
+    assert detail is not None
+    assert detail.blocks_minted == 2
+    assert store.pool_detail("unknown") is None
+    assert store.recent_blocks_by_pool("pool1") == ["b2", "b1"]
+    store.close()
+
+
 def test_a_pool_registration_makes_the_pool_active() -> None:
     store = SqliteStore()
     reg = PoolRegistration(pool_id="pool1", pledge=1000, margin=0.03, reward_address="stake_x")

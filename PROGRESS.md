@@ -25,3 +25,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch19 - Publish (v1.0.0)
 - [x] ch20 - Local-state-query (v1.2.0)
 - [x] ch21 - Epochs and the dashboard (v1.3.0)
+- [x] ch22 - Pools (v1.4.0)

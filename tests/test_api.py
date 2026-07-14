@@ -152,7 +152,15 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     assets = client.get("/assets").json()
     assert assets == [{"policy_id": "pol", "asset_name": "TOK", "quantity": 3}]
 
-    assert client.get("/pools").json() == ["pool1"]
+    pools = client.get("/pools").json()
+    assert len(pools) == 1
+    assert pools[0]["pool_id"] == "pool1"
+    assert "blocks_minted" in pools[0] and "delegators" in pools[0]
+
+    detail = client.get("/pools/pool1").json()
+    assert detail["pool_id"] == "pool1"
+    assert "recent_blocks" in detail
+    assert client.get("/pools/unknown").status_code == 404
 
     account = client.get("/accounts/stake_alice").json()
     assert account["registered"] is True

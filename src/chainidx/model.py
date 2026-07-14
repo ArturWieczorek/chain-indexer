@@ -202,6 +202,23 @@ class TxDetail:
 
 
 @dataclass(frozen=True)
+class PoolSummary:
+    """A stake pool as the explorer shows it (chapter 22).
+
+    ``blocks_minted`` and ``delegators`` come from the indexed chain; ``pledge``
+    and ``margin`` from the pool's latest registration. Live stake needs
+    local-state-query and is added later.
+    """
+
+    pool_id: str
+    blocks_minted: int
+    delegators: int
+    pledge: int
+    margin: float
+    reward_address: str
+
+
+@dataclass(frozen=True)
 class EpochSummary:
     """Aggregate stats for one epoch, derived from the indexed blocks (chapter 21)."""
 
@@ -279,6 +296,7 @@ class Block:
     block_hash: str
     prev_hash: str
     txs: tuple[Tx, ...] = field(default=())
+    issuer: str = ""  # the pool id that minted the block (chapter 22), or ""
 
     @property
     def point(self) -> Point:

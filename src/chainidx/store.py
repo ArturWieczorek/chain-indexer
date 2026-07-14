@@ -35,6 +35,7 @@ from chainidx.model import (
     Block,
     EpochSummary,
     Point,
+    PoolSummary,
     Tip,
     Tx,
     TxDetail,
@@ -108,6 +109,18 @@ class Store(Protocol):
 
     def pools(self) -> tuple[str, ...]:
         """Return the pool ids that are registered and not retired."""
+        ...
+
+    def pool_summaries(self) -> list[PoolSummary]:
+        """Return a summary of each active pool (blocks, delegators, params)."""
+        ...
+
+    def pool_detail(self, pool_id: str) -> PoolSummary | None:
+        """Return one active pool's summary, or ``None`` if not active."""
+        ...
+
+    def recent_blocks_by_pool(self, pool_id: str, limit: int = 20) -> list[str]:
+        """Return recent block hashes minted by a pool, newest first."""
         ...
 
     def delegation_of(self, stake_address: str) -> str | None:
@@ -307,6 +320,15 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_vote_action ON voting_procedure (gov_action_id)",
         ),
     ),
+    (
+        5,
+        (
+            # Which pool minted each block (chapter 22). Existing rows default to
+            # '' (unknown); new blocks record the issuer pool id.
+            "ALTER TABLE block ADD COLUMN issuer TEXT NOT NULL DEFAULT ''",
+            "CREATE INDEX idx_block_issuer ON block (issuer)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -364,9 +386,16 @@ class SqliteStore:
         # rolls back if anything raises - so a half-written block never lands.
         with self._conn:
             cur = self._conn.execute(
-                "INSERT INTO block (hash, slot_no, block_no, prev_hash, tx_count) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (block.block_hash, block.slot_no, block.block_no, block.prev_hash, len(block.txs)),
+                "INSERT INTO block (hash, slot_no, block_no, prev_hash, tx_count, issuer) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    block.block_hash,
+                    block.slot_no,
+                    block.block_no,
+                    block.prev_hash,
+                    len(block.txs),
+                    block.issuer,
+                ),
             )
             block_id = cur.lastrowid
             assert block_id is not None
@@ -604,6 +633,46 @@ class SqliteStore:
             "ORDER BY pool_id"
         ).fetchall()
         return tuple(r["pool_id"] for r in rows)
+
+    def _pool_summary(self, pool_id: str) -> PoolSummary:
+        reg = self._conn.execute(
+            "SELECT pledge, margin, reward_addr FROM pool_registration "
+            "WHERE pool_id = ? ORDER BY tx_id DESC LIMIT 1",
+            (pool_id,),
+        ).fetchone()
+        blocks = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM block WHERE issuer = ?", (pool_id,)
+        ).fetchone()["n"]
+        # A delegator counts if its most recent delegation (highest tx_id) is to
+        # this pool.
+        delegators = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM delegation d WHERE d.pool_id = ? "
+            "AND d.tx_id = (SELECT MAX(tx_id) FROM delegation d2 WHERE d2.addr = d.addr)",
+            (pool_id,),
+        ).fetchone()["n"]
+        return PoolSummary(
+            pool_id=pool_id,
+            blocks_minted=blocks,
+            delegators=delegators,
+            pledge=reg["pledge"] if reg is not None else 0,
+            margin=reg["margin"] if reg is not None else 0.0,
+            reward_address=reg["reward_addr"] if reg is not None else "",
+        )
+
+    def pool_summaries(self) -> list[PoolSummary]:
+        return [self._pool_summary(pool_id) for pool_id in self.pools()]
+
+    def pool_detail(self, pool_id: str) -> PoolSummary | None:
+        if pool_id not in self.pools():
+            return None
+        return self._pool_summary(pool_id)
+
+    def recent_blocks_by_pool(self, pool_id: str, limit: int = 20) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT hash FROM block WHERE issuer = ? ORDER BY id DESC LIMIT ?",
+            (pool_id, limit),
+        ).fetchall()
+        return [r["hash"] for r in rows]
 
     def delegation_of(self, stake_address: str) -> str | None:
         row = self._conn.execute(
