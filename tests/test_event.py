@@ -45,12 +45,38 @@ def test_describe_block_emits_one_event_per_thing() -> None:
     assert types[0] == "block"
     assert set(types) == {
         "block",
+        "transaction",
         "pool_registered",
         "stake_delegated",
         "drep_registered",
         "gov_action_proposed",
         "vote_cast",
     }
+
+
+def test_transaction_event_carries_addresses_policies_and_assets() -> None:
+    from chainidx.model import Asset
+
+    block = Block(
+        block_no=1,
+        slot_no=10,
+        block_hash="b1",
+        prev_hash="genesis",
+        txs=(
+            Tx(
+                "tx1",
+                outputs=(TxOut("addrA", 2_000_000, assets=(Asset("polX", "4869", 1),)),),
+                mint=(Asset("polMint", "4d494e54", 5),),
+            ),
+        ),
+    )
+    tx_event = next(e for e in describe_block(block) if e["type"] == "transaction")
+    assert tx_event["tx_hash"] == "tx1"
+    assert tx_event["addresses"] == ["addrA"]
+    assert tx_event["policies"] == ["polMint", "polX"]  # sorted, from outputs + mint
+    assert tx_event["assets"] == ["polMint.4d494e54", "polX.4869"]
+    assert tx_event["lovelace"] == 2_000_000
+    assert tx_event["mint_count"] == 1
 
 
 async def test_event_bus_delivers_to_subscribers() -> None:

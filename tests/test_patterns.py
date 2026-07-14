@@ -1,7 +1,7 @@
 """Tests for watch-pattern parsing (chapter 64)."""
 
 from chainidx import bech32
-from chainidx.patterns import Pattern, parse_pattern
+from chainidx.patterns import EventFilter, Pattern, parse_pattern
 
 
 def test_star_matches_everything() -> None:
@@ -41,3 +41,27 @@ def test_a_raw_hex_address_is_lowercased() -> None:
 
 def test_a_non_hex_string_is_an_address_verbatim() -> None:
     assert parse_pattern("addrA") == Pattern("address", "addrA")
+
+
+def test_empty_event_filter_matches_everything() -> None:
+    assert EventFilter().matches({"type": "block"}) is True
+    assert EventFilter().matches({"type": "transaction", "addresses": ["a"]}) is True
+
+
+def test_event_filter_ors_within_a_field() -> None:
+    f = EventFilter(addresses=frozenset({"addrA", "addrB"}))
+    assert f.matches({"type": "transaction", "addresses": ["addrB", "addrC"]}) is True
+    assert f.matches({"type": "transaction", "addresses": ["addrC"]}) is False
+
+
+def test_event_filter_ands_across_fields() -> None:
+    f = EventFilter(addresses=frozenset({"addrA"}), policies=frozenset({"polX"}))
+    assert f.matches({"addresses": ["addrA"], "policies": ["polX"]}) is True
+    assert f.matches({"addresses": ["addrA"], "policies": ["polY"]}) is False  # policy fails
+
+
+def test_event_filter_by_type_and_missing_fields() -> None:
+    assert EventFilter(types=frozenset({"transaction"})).matches({"type": "block"}) is False
+    # An address filter excludes an event that carries no addresses (a block).
+    assert EventFilter(addresses=frozenset({"addrA"})).matches({"type": "block"}) is False
+    assert EventFilter(assets=frozenset({"polX.4869"})).matches({"assets": ["polX.4869"]}) is True

@@ -26,9 +26,39 @@ from chainidx.model import (
     DRepRegistration,
     PoolRegistration,
     StakeDelegation,
+    Tx,
 )
 
 Event = dict[str, Any]
+
+
+def _transaction_event(block: Block, tx: Tx) -> Event:
+    """A per-transaction event carrying what a webhook filter matches on.
+
+    It gathers the output addresses, and the policies and assets touched by the
+    transaction's outputs and its mint - so a consumer can filter by address,
+    policy, or asset (chapter 68). Assets use the ``policyid.assetname`` form the
+    watch patterns use.
+    """
+    policies: set[str] = set()
+    assets: set[str] = set()
+    for holding in (a for out in tx.outputs for a in out.assets):
+        policies.add(holding.policy_id)
+        assets.add(f"{holding.policy_id}.{holding.asset_name}")
+    for minted in tx.mint:
+        policies.add(minted.policy_id)
+        assets.add(f"{minted.policy_id}.{minted.asset_name}")
+    return {
+        "type": "transaction",
+        "tx_hash": tx.tx_id,
+        "block_no": block.block_no,
+        "addresses": [out.address for out in tx.outputs],
+        "policies": sorted(policies),
+        "assets": sorted(assets),
+        "lovelace": sum(out.lovelace for out in tx.outputs),
+        "output_count": len(tx.outputs),
+        "mint_count": len(tx.mint),
+    }
 
 
 class EventBus:
@@ -62,6 +92,7 @@ def describe_block(block: Block) -> list[Event]:
         }
     ]
     for tx in block.txs:
+        events.append(_transaction_event(block, tx))
         for cert in tx.certificates:
             if isinstance(cert, PoolRegistration):
                 events.append(

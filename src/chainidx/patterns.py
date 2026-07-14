@@ -21,7 +21,8 @@ tested directly. bech32 decoding is reused from :mod:`chainidx.bech32`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from chainidx import bech32
 
@@ -72,3 +73,32 @@ def parse_pattern(text: str) -> Pattern:
     if len(text) == 56 and _is_hex(text):
         return Pattern("policy", text.lower())
     return Pattern("address", text.lower() if _is_hex(text) else text)
+
+
+@dataclass(frozen=True)
+class EventFilter:
+    """An adder-style filter over the events on the bus (chapter 68).
+
+    A consumer says which event ``types``, ``addresses``, ``policies`` and
+    ``assets`` it cares about. The semantics match adder's: **OR within a field**
+    (any of the listed addresses), **AND across fields** (an address you want *and*
+    a policy you want). A field left empty does not constrain, so the empty filter
+    matches everything. An event that lacks a field a filter constrains on cannot
+    match it - filtering by address selects only the address-bearing events.
+    """
+
+    types: frozenset[str] = field(default_factory=frozenset)
+    addresses: frozenset[str] = field(default_factory=frozenset)
+    policies: frozenset[str] = field(default_factory=frozenset)
+    assets: frozenset[str] = field(default_factory=frozenset)
+
+    def matches(self, event: dict[str, Any]) -> bool:
+        # For each constrained field: pass if the wanted set is empty (no
+        # constraint) or it intersects what the event carries. AND across fields.
+        checks = (
+            (self.types, (event.get("type"),)),
+            (self.addresses, event.get("addresses", ())),
+            (self.policies, event.get("policies", ())),
+            (self.assets, event.get("assets", ())),
+        )
+        return all(not wanted or wanted.intersection(have) for wanted, have in checks)
