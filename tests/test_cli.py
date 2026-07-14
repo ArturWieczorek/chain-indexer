@@ -7,11 +7,11 @@ from click.testing import CliRunner
 from chainidx.cli import format_state, main
 from chainidx.model import (
     Block,
-    LedgerSnapshot,
-    PoolStake,
     GovActionProposal,
     GovVote,
+    LedgerSnapshot,
     PoolRegistration,
+    PoolStake,
     StakeDelegation,
     StakeRegistration,
     Tx,

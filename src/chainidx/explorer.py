@@ -42,7 +42,8 @@ def create_default_explorer_app() -> FastAPI:  # pragma: no cover - needs a data
     from chainidx.api import load_network
     from chainidx.store import SqliteStore
 
-    return create_explorer_app(SqliteStore(os.environ.get("CHAINIDX_DB", "chain.db")), load_network())
+    db = os.environ.get("CHAINIDX_DB", "chain.db")
+    return create_explorer_app(SqliteStore(db), load_network())
 
 
 def _main() -> None:  # pragma: no cover - starts a server

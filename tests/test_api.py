@@ -4,19 +4,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chainidx.api import create_app
-from chainidx.network import NetworkParams
 from chainidx.model import (
+    AccountState,
     Asset,
     Block,
     DRepRegistration,
     GovActionProposal,
     GovVote,
     PoolRegistration,
+    StakeDelegation,
     StakeRegistration,
     Tx,
     TxIn,
     TxOut,
 )
+from chainidx.network import NetworkParams
 from chainidx.store import SqliteStore
 
 
@@ -64,6 +66,44 @@ def client() -> TestClient:
     return TestClient(create_app(store))
 
 
+def test_account_with_delegation_and_rewards() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    certificates=(StakeRegistration("cred1"), StakeDelegation("cred1", "poolX")),
+                ),
+            ),
+        )
+    )
+    store.record_account_states([AccountState("cred1", None, 500)])
+    api = TestClient(create_app(store))
+
+    account = api.get("/accounts/cred1").json()
+    assert account["registered"] is True
+    assert account["reward"] == 500
+    # snapshot pool is None, so it falls back to the on-chain delegation.
+    assert account["delegated_to"] == "poolX"
+
+
+def test_stake_credential_decoding() -> None:
+    from chainidx.api import _stake_credential
+    from chainidx.bech32 import encode
+
+    cred = "aa" * 28
+    stake_addr = encode("stake_test", bytes([0xE0]) + bytes.fromhex(cred))
+    assert _stake_credential(stake_addr) == cred
+    assert _stake_credential("plainhex") == "plainhex"
+    # A "stake"-prefixed but invalid string is returned unchanged.
+    assert _stake_credential("stake_not_valid") == "stake_not_valid"
+
+
 def test_bech32_display_and_decode_helpers() -> None:
     from chainidx.api import _address_display, _pool_display, _to_hex
 
@@ -77,6 +117,14 @@ def test_bech32_display_and_decode_helpers() -> None:
     # Arguments decode back to hex when prefixed, else pass through.
     assert _to_hex(_pool_display(pool_hex), "pool") == pool_hex
     assert _to_hex("plainhex", "pool") == "plainhex"
+
+
+def test_block_shows_minting_pool() -> None:
+    store = SqliteStore()
+    pool_hex = "6887684e60a31bf89dcae5b58346f31a5da33f396f6a00f09daf21a0"
+    store.apply_block(Block(1, 10, "b1", "genesis", txs=(), issuer=pool_hex))
+    api = TestClient(create_app(store))
+    assert api.get("/blocks/b1").json()["issuer"].startswith("pool1")
 
 
 def test_blocks_latest_is_404_on_an_empty_store() -> None:
@@ -112,9 +160,7 @@ def test_epochs_and_network_with_params() -> None:
     store = SqliteStore()
     for i in range(1, 13):  # block i at slot i*10
         store.apply_block(Block(i, i * 10, f"b{i}", "p", txs=()))
-    network = NetworkParams(
-        system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100
-    )
+    network = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
     api = TestClient(create_app(store, network))
 
     epochs = api.get("/epochs").json()
@@ -170,12 +216,14 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     pools = client.get("/pools").json()
     assert len(pools) == 1
     assert pools[0]["pool_id"] == "pool1"
-    assert "blocks_minted" in pools[0] and "delegators" in pools[0]
+    assert "blocks_minted" in pools[0]
+    assert "delegators" in pools[0]
 
     detail = client.get("/pools/pool1").json()
     assert detail["pool_id"] == "pool1"
     assert "recent_blocks" in detail
-    assert "live_stake" in detail and "saturation" in detail
+    assert "live_stake" in detail
+    assert "saturation" in detail
     assert client.get("/pools/unknown").status_code == 404
 
     account = client.get("/accounts/stake_alice").json()

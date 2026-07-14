@@ -26,6 +26,29 @@ def test_message_builders() -> None:
     assert statequery.protocol_params_query() == [3, [0, [0, [6, [3]]]]]
 
 
+def test_delegations_and_rewards_query_and_parse() -> None:
+    cred = "e9546949f50285fd15493fe5ba3ffc8bac4aef1c34f5a294d66be825"
+    pool = "6887684e60a31bf89dcae5b58346f31a5da33f396f6a00f09daf21a0"
+    query = statequery.delegations_and_rewards_query([cred])
+    assert query == [3, [0, [0, [6, [10, [[0, bytes.fromhex(cred)]]]]]]]
+
+    # Result shape: [[delegations, rewards]] keyed by (keyType, credential).
+    result = [
+        [
+            {(0, bytes.fromhex(cred)): bytes.fromhex(pool)},
+            {(0, bytes.fromhex(cred)): 602474899},
+        ]
+    ]
+    parsed = statequery.parse_delegations_and_rewards(result)
+    assert parsed[cred].delegated_pool == pool
+    assert parsed[cred].reward == 602474899
+
+    # A credential with a reward but no delegation has delegated_pool None.
+    reward_only = statequery.parse_delegations_and_rewards([[{}, {(0, bytes.fromhex(cred)): 5}]])
+    assert reward_only[cred].delegated_pool is None
+    assert reward_only[cred].reward == 5
+
+
 def test_parse_epoch() -> None:
     assert statequery.parse_epoch([76]) == 76
 

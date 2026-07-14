@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.8.0] - Accounts and rewards
+
+### Added
+
+- `AccountState` + the argument-carrying LSQ query
+  `delegations_and_rewards_query`/`parse_delegations_and_rewards`;
+  `LocalStateClient.account_states`.
+- Migration 7 (`account_stat`) + `store.record_account_states`/`account_state`/
+  `registered_stake_credentials`; the snapshot loop persists account state.
+- Enriched `/accounts/{stake}` (decodes stake_test1..., delegation + rewards) and
+  an explorer account page.
+
 ## [1.7.0] - Bech32 addresses
 
 ### Added

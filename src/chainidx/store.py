@@ -31,6 +31,7 @@ from typing import Protocol
 
 from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
+    AccountState,
     Asset,
     Block,
     DRepSummary,
@@ -136,6 +137,18 @@ class Store(Protocol):
 
     def is_stake_registered(self, stake_address: str) -> bool:
         """Return whether a stake address is currently registered."""
+        ...
+
+    def registered_stake_credentials(self) -> list[str]:
+        """Return the distinct stake credentials seen in registrations."""
+        ...
+
+    def record_account_states(self, states: list[AccountState]) -> None:
+        """Replace the per-account ledger snapshot (delegation + reward)."""
+        ...
+
+    def account_state(self, stake_address: str) -> AccountState | None:
+        """Return the snapshotted delegation/reward for a stake credential."""
         ...
 
     def dreps(self) -> tuple[str, ...]:
@@ -357,6 +370,18 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             # so it is not block-keyed and does not roll back.
             "CREATE TABLE pool_stat (pool_id TEXT PRIMARY KEY, stake REAL NOT NULL)",
             "CREATE TABLE ledger_stat (key TEXT PRIMARY KEY, value REAL NOT NULL)",
+        ),
+    ),
+    (
+        7,
+        (
+            # Per-account ledger snapshot (chapter 26): delegation + reward,
+            # refreshed from local-state-query. Not chain data; not block-keyed.
+            "CREATE TABLE account_stat ("
+            "  stake_address  TEXT PRIMARY KEY,"
+            "  delegated_pool TEXT,"
+            "  reward         INTEGER NOT NULL"
+            ")",
         ),
     ),
 ]
@@ -678,9 +703,7 @@ class SqliteStore:
             )
 
     def _ledger_stat(self, key: str) -> float:
-        row = self._conn.execute(
-            "SELECT value FROM ledger_stat WHERE key = ?", (key,)
-        ).fetchone()
+        row = self._conn.execute("SELECT value FROM ledger_stat WHERE key = ?", (key,)).fetchone()
         return float(row["value"]) if row is not None else 0.0
 
     def _live_stake(self, pool_id: str) -> float:
@@ -757,6 +780,34 @@ class SqliteStore:
         ).fetchone()["m"]
         return dereg is None or reg > dereg
 
+    def registered_stake_credentials(self) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT DISTINCT addr FROM stake_registration ORDER BY addr"
+        ).fetchall()
+        return [r["addr"] for r in rows]
+
+    def record_account_states(self, states: list[AccountState]) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM account_stat")
+            self._conn.executemany(
+                "INSERT INTO account_stat (stake_address, delegated_pool, reward) VALUES (?, ?, ?)",
+                [(s.stake_address, s.delegated_pool, s.reward) for s in states],
+            )
+
+    def account_state(self, stake_address: str) -> AccountState | None:
+        row = self._conn.execute(
+            "SELECT stake_address, delegated_pool, reward FROM account_stat "
+            "WHERE stake_address = ?",
+            (stake_address,),
+        ).fetchone()
+        if row is None:
+            return None
+        return AccountState(
+            stake_address=row["stake_address"],
+            delegated_pool=row["delegated_pool"],
+            reward=row["reward"],
+        )
+
     def dreps(self) -> tuple[str, ...]:
         rows = self._conn.execute(
             "SELECT DISTINCT drep_id FROM drep_registration "
@@ -813,11 +864,13 @@ class SqliteStore:
         summaries: list[DRepSummary] = []
         for drep_id in self.dreps():
             deposit = self._conn.execute(
-                "SELECT deposit FROM drep_registration WHERE drep_id = ? ORDER BY tx_id DESC LIMIT 1",
+                "SELECT deposit FROM drep_registration WHERE drep_id = ? "
+                "ORDER BY tx_id DESC LIMIT 1",
                 (drep_id,),
             ).fetchone()["deposit"]
             votes = self._conn.execute(
-                "SELECT COUNT(*) AS n FROM voting_procedure WHERE voter_id = ? AND voter_role = 'DRep'",
+                "SELECT COUNT(*) AS n FROM voting_procedure "
+                "WHERE voter_id = ? AND voter_role = 'DRep'",
                 (drep_id,),
             ).fetchone()["n"]
             summaries.append(DRepSummary(drep_id=drep_id, deposit=deposit, votes_cast=votes))

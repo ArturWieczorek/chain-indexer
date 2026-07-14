@@ -22,7 +22,7 @@ import cbor2
 
 from chainidx import statequery
 from chainidx.handshake import negotiate
-from chainidx.model import LedgerSnapshot
+from chainidx.model import AccountState, LedgerSnapshot
 from chainidx.mux import PROTOCOL_LOCAL_STATE_QUERY as LSQ
 from chainidx.mux import MuxConnection
 
@@ -79,6 +79,36 @@ class LocalStateClient:
                 stake_pools=pools,
                 stake_distribution=distribution,
             )
+        finally:
+            writer.close()
+
+    async def account_states(
+        self, credentials: list[str], retries: int = 8
+    ) -> dict[str, AccountState]:
+        """Return delegation + reward for each stake credential (hex)."""
+        if not credentials:
+            return {}
+        last: Exception | None = None
+        for _ in range(retries):
+            try:
+                return await asyncio.wait_for(self._account_states_once(credentials), 12)
+            except (EOFError, OSError, RuntimeError, TimeoutError) as exc:
+                last = exc
+                await asyncio.sleep(0.5)
+        raise RuntimeError(f"account query failed after {retries} tries: {last}")
+
+    async def _account_states_once(self, credentials: list[str]) -> dict[str, AccountState]:
+        reader, writer = await asyncio.open_unix_connection(self._socket_path)
+        try:
+            mux = MuxConnection(reader, writer)
+            await negotiate(mux, self._magic)
+            await mux.send(LSQ, cbor2.dumps(statequery.acquire_message()))
+            acquired = await mux.receive(LSQ)
+            if acquired[0] != 1:
+                raise RuntimeError(f"could not acquire ledger state: {acquired!r}")
+            result = await self._query(mux, statequery.delegations_and_rewards_query(credentials))
+            await mux.send(LSQ, cbor2.dumps(statequery.release_message()))
+            return statequery.parse_delegations_and_rewards(result)
         finally:
             writer.close()
 

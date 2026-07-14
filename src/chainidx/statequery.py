@@ -30,10 +30,10 @@ lives in ``localstate.py``.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from chainidx.model import PoolStake
+from chainidx.model import AccountState, PoolStake
 
 # Conway's index in the node's era list (Byron=0 ... Conway=6).
 _CONWAY_ERA = 6
@@ -81,6 +81,35 @@ def protocol_params_query() -> list[Any]:
     return _block_query(_GET_CURRENT_PPARAMS)
 
 
+def delegations_and_rewards_query(credentials: list[str]) -> list[Any]:
+    """GetFilteredDelegationsAndRewardAccounts for a set of stake credentials.
+
+    This is our first query that carries an argument: a list of ``[keyType,
+    hash]`` credentials (keyType 0 = key hash). The node returns the pool each
+    delegates to and its reward balance.
+    """
+    creds = [[0, bytes.fromhex(c)] for c in credentials]
+    return _block_query([10, creds])
+
+
+def parse_delegations_and_rewards(result: list[Any]) -> dict[str, AccountState]:
+    """Parse the result into ``{credential_hex: AccountState}``.
+
+    The result is ``[[delegations, rewards]]`` where each map is keyed by a
+    ``(keyType, credential)`` pair.
+    """
+    delegations, rewards = result[0]
+    out: dict[str, AccountState] = {}
+    for key, pool in delegations.items():
+        cred = key[1].hex()
+        out[cred] = AccountState(stake_address=cred, delegated_pool=pool.hex(), reward=0)
+    for key, coin in rewards.items():
+        cred = key[1].hex()
+        pool = out[cred].delegated_pool if cred in out else None
+        out[cred] = AccountState(stake_address=cred, delegated_pool=pool, reward=int(coin))
+    return out
+
+
 def parse_epoch(result: list[Any]) -> int:
     """GetEpochNo result is ``[epoch]``."""
     return int(result[0])
@@ -89,7 +118,7 @@ def parse_epoch(result: list[Any]) -> int:
 def parse_system_start(result: list[Any]) -> str:
     """GetSystemStart result is ``[year, day_of_year, picoseconds_of_day]``."""
     year, day_of_year, picoseconds = result
-    start = datetime(year, 1, 1, tzinfo=timezone.utc) + timedelta(
+    start = datetime(year, 1, 1, tzinfo=UTC) + timedelta(
         days=day_of_year - 1, microseconds=picoseconds // 1_000_000
     )
     return start.isoformat()

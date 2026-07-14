@@ -1,6 +1,7 @@
 """Tests for Shelley staking: certificates, derived views, and rollback."""
 
 from chainidx.model import (
+    AccountState,
     Block,
     PoolRegistration,
     PoolRetirement,
@@ -29,7 +30,9 @@ def test_pool_summaries_and_detail() -> None:
         StakeRegistration("stake_a"),
         StakeDelegation("stake_a", "pool1"),
     )
-    store.apply_block(Block(1, 10, "b1", "genesis", txs=(Tx("tx1", certificates=certs),), issuer="pool1"))
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", txs=(Tx("tx1", certificates=certs),), issuer="pool1")
+    )
     store.apply_block(Block(2, 20, "b2", "b1", txs=(), issuer="pool1"))
 
     summaries = store.pool_summaries()
@@ -46,6 +49,22 @@ def test_pool_summaries_and_detail() -> None:
     assert detail.blocks_minted == 2
     assert store.pool_detail("unknown") is None
     assert store.recent_blocks_by_pool("pool1") == ["b2", "b1"]
+    store.close()
+
+
+def test_account_state_snapshot() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", txs=(Tx("tx1", certificates=(StakeRegistration("cred1"),)),))
+    )
+    assert store.registered_stake_credentials() == ["cred1"]
+
+    store.record_account_states([AccountState("cred1", "poolX", 1_000_000)])
+    state = store.account_state("cred1")
+    assert state is not None
+    assert state.delegated_pool == "poolX"
+    assert state.reward == 1_000_000
+    assert store.account_state("unknown") is None
     store.close()
 
 

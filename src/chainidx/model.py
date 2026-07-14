@@ -262,6 +262,20 @@ class DRepSummary:
 
 
 @dataclass(frozen=True)
+class AccountState:
+    """A stake account's delegation and reward balance (chapter 26, ledger state).
+
+    ``stake_address`` is the stake credential (hex); ``delegated_pool`` is the pool
+    it delegates to (hex), or ``None``; ``reward`` is the withdrawable reward
+    balance in lovelace.
+    """
+
+    stake_address: str
+    delegated_pool: str | None
+    reward: int
+
+
+@dataclass(frozen=True)
 class PoolStake:
     """A stake pool's share of the live stake (chapter 20, from local-state-query).
 

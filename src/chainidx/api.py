@@ -58,6 +58,20 @@ def _to_hex(arg: str, *prefixes: str) -> str:
     return arg
 
 
+def _stake_credential(arg: str) -> str:
+    """Turn a stake address (``stake...``) into its 28-byte credential hex.
+
+    A stake address is a 1-byte header plus the credential, so we drop the
+    header. A plain hex credential (or test id) passes through unchanged.
+    """
+    if arg.startswith("stake"):
+        try:
+            return bech32.decode(arg)[1][1:].hex()
+        except ValueError:
+            return arg
+    return arg
+
+
 def _asset(asset: Asset) -> dict[str, Any]:
     return {
         "policy_id": asset.policy_id,
@@ -226,10 +240,16 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
 
     @app.get("/accounts/{stake_address}")
     def account(stake_address: str) -> dict[str, Any]:
+        cred = _stake_credential(stake_address)
+        state = store.account_state(cred)
+        delegated = state.delegated_pool if state and state.delegated_pool else None
+        delegated = delegated or store.delegation_of(cred)
         return {
             "stake_address": stake_address,
-            "registered": store.is_stake_registered(stake_address),
-            "delegated_to": store.delegation_of(stake_address),
+            "credential": cred,
+            "registered": store.is_stake_registered(cred),
+            "delegated_to": _pool_display(delegated) if delegated else None,
+            "reward": state.reward if state else 0,
         }
 
     @app.get("/governance/actions")

@@ -10,7 +10,10 @@ ADDR_HEX = (
     "00fe75e65309653a8a1e04833eff66807d265ee7b203db4426ffd505b9"
     "e9546949f50285fd15493fe5ba3ffc8bac4aef1c34f5a294d66be825"
 )
-ADDR_B32 = "addr_test1qrl8tejnp9jn4zs7qjpnalmxsp7jvhh8kgpak3pxll2stw0f2355nagzsh732jflukarllyt439w78p57k3ff4ntaqjspn3a7h"
+ADDR_B32 = (
+    "addr_test1qrl8tejnp9jn4zs7qjpnalmxsp7jvhh8kgpak3pxll2stw0"
+    "f2355nagzsh732jflukarllyt439w78p57k3ff4ntaqjspn3a7h"
+)
 
 
 def test_pool_encode_matches_cardano_cli() -> None:
