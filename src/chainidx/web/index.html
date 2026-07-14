@@ -483,47 +483,74 @@
           `<tr><th>Asset</th><th>Quantity</th><th>Holders</th></tr>${rows}</table></div>`;
       }
 
-      // A small inline-SVG line/area chart over per-epoch points (oldest first).
-      // valueFn picks the series; fmt formats the tooltip value.
+      // Chart geometry shared by the line charts, with room for axis labels.
+      const CHART = { H: 176, padL: 54, padR: 12, padT: 10, padB: 26 };
+      function chartX(data, i, W) {
+        return CHART.padL + (i * (W - CHART.padL - CHART.padR)) / Math.max(1, data.length - 1);
+      }
+      function chartY(v, max) {
+        return CHART.H - CHART.padB - (v / max) * (CHART.H - CHART.padB - CHART.padT);
+      }
+      // Horizontal gridlines with y-value labels, plus a few x-axis epoch labels.
+      function chartAxes(data, W, max, fmt) {
+        const steps = 4;
+        let out = "";
+        for (let s = 0; s <= steps; s++) {
+          const val = (max * s) / steps;
+          const gy = chartY(val, max);
+          out +=
+            `<line x1="${CHART.padL}" y1="${gy.toFixed(1)}" x2="${W - CHART.padR}" y2="${gy.toFixed(1)}" ` +
+            `stroke="var(--line)" stroke-width="0.5"></line>` +
+            `<text x="${CHART.padL - 6}" y="${(gy + 3).toFixed(1)}" text-anchor="end" font-size="9" ` +
+            `fill="var(--muted)">${esc(fmt(val))}</text>`;
+        }
+        const idxs = [...new Set([0, Math.floor((data.length - 1) / 2), data.length - 1])];
+        out += idxs
+          .map(
+            (i) =>
+              `<text x="${chartX(data, i, W).toFixed(1)}" y="${CHART.H - 8}" text-anchor="middle" ` +
+              `font-size="9" fill="var(--muted)">e${data[i].epoch_no ?? ""}</text>`
+          )
+          .join("");
+        return out;
+      }
+
+      // A line/area chart over per-epoch points (oldest first), with axes.
       function lineChart(data, valueFn, fmt) {
         if (!data.length) return `<div class="panel muted">no data</div>`;
-        const H = 150;
-        const W = Math.max(320, data.length * 14);
-        const pad = 26;
+        const W = Math.max(360, data.length * 16);
         const max = Math.max(1, ...data.map(valueFn));
-        const x = (i) => pad + (i * (W - pad - 8)) / Math.max(1, data.length - 1);
-        const y = (v) => H - 20 - (v / max) * (H - 34);
-        const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(valueFn(d)).toFixed(1)}`).join(" ");
-        const area = `${x(0).toFixed(1)},${H - 20} ${pts} ${x(data.length - 1).toFixed(1)},${H - 20}`;
+        const base = chartY(0, max);
+        const pts = data.map((d, i) => `${chartX(data, i, W).toFixed(1)},${chartY(valueFn(d), max).toFixed(1)}`);
+        const area = `${chartX(data, 0, W).toFixed(1)},${base.toFixed(1)} ${pts.join(" ")} ${chartX(data, data.length - 1, W).toFixed(1)},${base.toFixed(1)}`;
         const dots = data
           .map(
             (d, i) =>
-              `<circle cx="${x(i).toFixed(1)}" cy="${y(valueFn(d)).toFixed(1)}" r="2" fill="var(--accent)">` +
+              `<circle cx="${chartX(data, i, W).toFixed(1)}" cy="${chartY(valueFn(d), max).toFixed(1)}" r="2" fill="var(--accent)">` +
               `<title>epoch ${d.epoch_no}: ${fmt(valueFn(d))}</title></circle>`
           )
           .join("");
         return (
           `<div class="panel" style="overflow-x:auto">` +
-          `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">` +
+          `<svg viewBox="0 0 ${W} ${CHART.H}" style="width:100%;height:auto">` +
+          `${chartAxes(data, W, max, fmt)}` +
           `<polygon points="${area}" fill="var(--accent)" opacity="0.12"></polygon>` +
-          `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"></polyline>` +
+          `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.5"></polyline>` +
           `${dots}</svg></div>`
         );
       }
 
-      // Several series on one chart (shared scale), for comparisons like made vs
-      // expected. Each series is {fn, color, label}.
-      function multiLine(data, seriesList) {
+      // Several series on one chart (shared scale) with axes; each is {fn,color,label}.
+      function multiLine(data, seriesList, fmt) {
         if (!data.length) return `<div class="panel muted">no data</div>`;
-        const H = 150;
-        const W = Math.max(320, data.length * 14);
-        const pad = 26;
+        fmt = fmt || ((v) => String(Math.round(v)));
+        const W = Math.max(360, data.length * 16);
         const max = Math.max(1, ...data.flatMap((d) => seriesList.map((s) => s.fn(d))));
-        const x = (i) => pad + (i * (W - pad - 8)) / Math.max(1, data.length - 1);
-        const y = (v) => H - 20 - (v / max) * (H - 34);
         const lines = seriesList
           .map((s) => {
-            const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(s.fn(d)).toFixed(1)}`).join(" ");
+            const pts = data
+              .map((d, i) => `${chartX(data, i, W).toFixed(1)},${chartY(s.fn(d), max).toFixed(1)}`)
+              .join(" ");
             return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="1.5"></polyline>`;
           })
           .join("");
@@ -533,7 +560,8 @@
         return (
           `<div class="panel" style="overflow-x:auto">` +
           `<div class="muted" style="margin-bottom:.3rem">${legend}</div>` +
-          `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${lines}</svg></div>`
+          `<svg viewBox="0 0 ${W} ${CHART.H}" style="width:100%;height:auto">` +
+          `${chartAxes(data, W, max, fmt)}${lines}</svg></div>`
         );
       }
 
