@@ -101,6 +101,12 @@ files = ["src", "tests"]
 warn_unused_configs = true
 warn_unreachable = true
 
+# psycopg is an optional dependency (the Postgres backend, chapter 63). It is not
+# installed in the default/CI environment, so mypy should not require its stubs.
+[[tool.mypy.overrides]]
+module = ["psycopg", "psycopg.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
