@@ -166,4 +166,16 @@ def test_assets_pools_accounts_governance(client: TestClient) -> None:
     assert account["registered"] is True
 
     gov = client.get("/governance/actions").json()
-    assert gov == [{"gov_action_id": "gov1", "tally": {"Yes": 1}}]
+    assert gov[0]["gov_action_id"] == "gov1"
+    assert gov[0]["action_type"] == "InfoAction"
+    assert gov[0]["tally"] == {"yes": 1, "no": 0, "abstain": 0}
+
+    detail = client.get("/governance/actions/gov1").json()
+    assert detail["votes"][0]["vote"] == "Yes"
+    assert client.get("/governance/actions/missing").status_code == 404
+
+    dreps = client.get("/governance/dreps").json()
+    assert dreps[0]["drep_id"] == "drep1"
+    assert dreps[0]["deposit"] == 500
+    assert client.get("/governance/dreps/drep1").json()["votes_cast"] == 1
+    assert client.get("/governance/dreps/nope").status_code == 404

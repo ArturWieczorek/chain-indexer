@@ -230,6 +230,36 @@ class EpochSummary:
 
 
 @dataclass(frozen=True)
+class GovActionSummary:
+    """A governance action with its vote tally (chapter 23)."""
+
+    gov_action_id: str
+    action_type: str
+    deposit: int
+    yes: int
+    no: int
+    abstain: int
+
+
+@dataclass(frozen=True)
+class GovVoteRecord:
+    """A single vote cast on a governance action (chapter 23)."""
+
+    voter_role: str
+    voter_id: str
+    vote: str
+
+
+@dataclass(frozen=True)
+class DRepSummary:
+    """A delegated representative with its deposit and vote count (chapter 23)."""
+
+    drep_id: str
+    deposit: int
+    votes_cast: int
+
+
+@dataclass(frozen=True)
 class PoolStake:
     """A stake pool's share of the live stake (chapter 20, from local-state-query).
 

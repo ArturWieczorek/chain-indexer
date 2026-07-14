@@ -62,6 +62,43 @@ def test_votes_are_tallied() -> None:
     store.close()
 
 
+def test_governance_summaries_votes_and_dreps() -> None:
+    store = SqliteStore()
+    proposal = GovActionProposal("gov1", "InfoAction", 100, "stake_x")
+    votes = (GovVote("gov1", "DRep", "drep1", "Yes"), GovVote("gov1", "SPO", "pool1", "No"))
+    store.apply_block(
+        blk(
+            1,
+            "b1",
+            "genesis",
+            (
+                Tx(
+                    "tx1",
+                    certificates=(DRepRegistration("drep1", 500),),
+                    proposals=(proposal,),
+                    votes=votes,
+                ),
+            ),
+        )
+    )
+
+    summaries = store.governance_action_summaries()
+    assert len(summaries) == 1
+    assert summaries[0].action_type == "InfoAction"
+    assert summaries[0].deposit == 100
+    assert (summaries[0].yes, summaries[0].no, summaries[0].abstain) == (1, 1, 0)
+
+    records = store.governance_action_votes("gov1")
+    assert {r.vote for r in records} == {"Yes", "No"}
+
+    dreps = store.drep_summaries()
+    assert len(dreps) == 1
+    assert dreps[0].drep_id == "drep1"
+    assert dreps[0].deposit == 500
+    assert dreps[0].votes_cast == 1
+    store.close()
+
+
 def test_governance_rolls_back_with_its_block() -> None:
     store = SqliteStore()
     store.apply_block(

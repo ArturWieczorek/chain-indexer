@@ -26,3 +26,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch20 - Local-state-query (v1.2.0)
 - [x] ch21 - Epochs and the dashboard (v1.3.0)
 - [x] ch22 - Pools (v1.4.0)
+- [x] ch23 - Governance (v1.5.0)

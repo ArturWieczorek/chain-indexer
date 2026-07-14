@@ -16,7 +16,17 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
-from chainidx.model import Asset, Block, EpochSummary, PoolSummary, TxDetail, TxOut
+from chainidx.model import (
+    Asset,
+    Block,
+    DRepSummary,
+    EpochSummary,
+    GovActionSummary,
+    GovVoteRecord,
+    PoolSummary,
+    TxDetail,
+    TxOut,
+)
 from chainidx.network import NetworkParams
 from chainidx.store import Store
 
@@ -69,6 +79,27 @@ def _pool(summary: PoolSummary) -> dict[str, Any]:
         "pledge": summary.pledge,
         "margin": summary.margin,
         "reward_address": summary.reward_address,
+    }
+
+
+def _gov_action(summary: GovActionSummary) -> dict[str, Any]:
+    return {
+        "gov_action_id": summary.gov_action_id,
+        "action_type": summary.action_type,
+        "deposit": summary.deposit,
+        "tally": {"yes": summary.yes, "no": summary.no, "abstain": summary.abstain},
+    }
+
+
+def _vote(record: GovVoteRecord) -> dict[str, Any]:
+    return {"voter_role": record.voter_role, "voter_id": record.voter_id, "vote": record.vote}
+
+
+def _drep(summary: DRepSummary) -> dict[str, Any]:
+    return {
+        "drep_id": summary.drep_id,
+        "deposit": summary.deposit,
+        "votes_cast": summary.votes_cast,
     }
 
 
@@ -170,9 +201,30 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
 
     @app.get("/governance/actions")
     def governance_actions() -> list[dict[str, Any]]:
-        return [
-            {"gov_action_id": g, "tally": store.vote_tally(g)} for g in store.governance_actions()
-        ]
+        return [_gov_action(a) for a in store.governance_action_summaries()]
+
+    @app.get("/governance/actions/{gov_action_id}")
+    def governance_action(gov_action_id: str) -> dict[str, Any]:
+        match = next(
+            (a for a in store.governance_action_summaries() if a.gov_action_id == gov_action_id),
+            None,
+        )
+        if match is None:
+            raise HTTPException(status_code=404, detail="governance action not found")
+        out = _gov_action(match)
+        out["votes"] = [_vote(v) for v in store.governance_action_votes(gov_action_id)]
+        return out
+
+    @app.get("/governance/dreps")
+    def dreps() -> list[dict[str, Any]]:
+        return [_drep(d) for d in store.drep_summaries()]
+
+    @app.get("/governance/dreps/{drep_id}")
+    def drep(drep_id: str) -> dict[str, Any]:
+        match = next((d for d in store.drep_summaries() if d.drep_id == drep_id), None)
+        if match is None:
+            raise HTTPException(status_code=404, detail="DRep not found")
+        return _drep(match)
 
     @app.get("/epochs")
     def epochs() -> list[dict[str, Any]]:

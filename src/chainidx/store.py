@@ -33,7 +33,10 @@ from chainidx.indexers import Indexer, default_indexers
 from chainidx.model import (
     Asset,
     Block,
+    DRepSummary,
     EpochSummary,
+    GovActionSummary,
+    GovVoteRecord,
     Point,
     PoolSummary,
     Tip,
@@ -141,6 +144,18 @@ class Store(Protocol):
 
     def vote_tally(self, gov_action_id: str) -> dict[str, int]:
         """Return a count of Yes/No/Abstain votes for a governance action."""
+        ...
+
+    def governance_action_summaries(self) -> list[GovActionSummary]:
+        """Return every governance action with its Yes/No/Abstain tally."""
+        ...
+
+    def governance_action_votes(self, gov_action_id: str) -> tuple[GovVoteRecord, ...]:
+        """Return the individual votes cast on a governance action."""
+        ...
+
+    def drep_summaries(self) -> list[DRepSummary]:
+        """Return each active DRep with its deposit and votes-cast count."""
         ...
 
     def close(self) -> None:
@@ -717,6 +732,50 @@ class SqliteStore:
             (gov_action_id,),
         ).fetchall()
         return {r["vote"]: int(r["n"]) for r in rows}
+
+    def governance_action_summaries(self) -> list[GovActionSummary]:
+        rows = self._conn.execute(
+            "SELECT gov_action_id, action_type, deposit FROM gov_action_proposal ORDER BY id"
+        ).fetchall()
+        summaries: list[GovActionSummary] = []
+        for r in rows:
+            tally = self.vote_tally(r["gov_action_id"])
+            summaries.append(
+                GovActionSummary(
+                    gov_action_id=r["gov_action_id"],
+                    action_type=r["action_type"],
+                    deposit=r["deposit"],
+                    yes=tally.get("Yes", 0),
+                    no=tally.get("No", 0),
+                    abstain=tally.get("Abstain", 0),
+                )
+            )
+        return summaries
+
+    def governance_action_votes(self, gov_action_id: str) -> tuple[GovVoteRecord, ...]:
+        rows = self._conn.execute(
+            "SELECT voter_role, voter_id, vote FROM voting_procedure "
+            "WHERE gov_action_id = ? ORDER BY id",
+            (gov_action_id,),
+        ).fetchall()
+        return tuple(
+            GovVoteRecord(voter_role=r["voter_role"], voter_id=r["voter_id"], vote=r["vote"])
+            for r in rows
+        )
+
+    def drep_summaries(self) -> list[DRepSummary]:
+        summaries: list[DRepSummary] = []
+        for drep_id in self.dreps():
+            deposit = self._conn.execute(
+                "SELECT deposit FROM drep_registration WHERE drep_id = ? ORDER BY tx_id DESC LIMIT 1",
+                (drep_id,),
+            ).fetchone()["deposit"]
+            votes = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM voting_procedure WHERE voter_id = ? AND voter_role = 'DRep'",
+                (drep_id,),
+            ).fetchone()["n"]
+            summaries.append(DRepSummary(drep_id=drep_id, deposit=deposit, votes_cast=votes))
+        return summaries
 
     def close(self) -> None:
         self._conn.close()

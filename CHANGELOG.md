@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.5.0] - Governance
+
+### Added
+
+- `GovActionSummary`/`GovVoteRecord`/`DRepSummary` and
+  `store.governance_action_summaries`/`governance_action_votes`/`drep_summaries`.
+- API `/governance/actions`, `/governance/actions/{id}`, `/governance/dreps`,
+  `/governance/dreps/{id}`; a Governance section in the explorer.
+
 ## [1.4.0] - Pools
 
 ### Added

@@ -9,4 +9,4 @@ import chainidx
 
 
 def test_package_imports_and_has_a_version() -> None:
-    assert chainidx.__version__ == "1.4.0"
+    assert chainidx.__version__ == "1.5.0"
