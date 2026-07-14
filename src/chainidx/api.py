@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 
 from chainidx import bech32
+from chainidx.cbor_blocks import CIP67_LABELS, CIP67_REFERENCE
 from chainidx.model import (
     Asset,
     AssetDetail,
@@ -104,10 +105,23 @@ def _stake_credential(arg: str) -> str:
     return arg
 
 
+_CIP67_PREFIXES = (CIP67_REFERENCE, *CIP67_LABELS)  # ref (100), nft (222), ft (333)
+
+
 def _asset_name_text(asset_name_hex: str) -> str:
-    """The asset name decoded as printable UTF-8 text, or ``""`` if it is not."""
+    """The asset name as printable UTF-8 text, or ``""`` if it is not.
+
+    A CIP-68 name carries a 4-byte CIP-67 label prefix (``000de140`` and friends)
+    of non-printable bytes; we strip a known prefix first so the readable part
+    (for example ``Cip68Demo``) shows instead of raw hex.
+    """
+    name = asset_name_hex
+    for prefix in _CIP67_PREFIXES:
+        if name.startswith(prefix) and len(name) > len(prefix):
+            name = name[len(prefix) :]
+            break
     try:
-        text = bytes.fromhex(asset_name_hex).decode("utf-8")
+        text = bytes.fromhex(name).decode("utf-8")
     except (ValueError, UnicodeDecodeError):
         return ""
     return text if text.isprintable() else ""

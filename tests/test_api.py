@@ -795,6 +795,9 @@ def test_asset_name_decoding_and_policy_page() -> None:
     assert _asset_name_text("ff") == ""  # not valid UTF-8
     assert _asset_name_text("00") == ""  # a control byte is not printable
     assert _asset_name_text("TOK") == ""  # not valid hex
+    # A CIP-68 name: the 000de140 (222) label prefix is stripped, then decoded.
+    assert _asset_name_text("000de140436970363844656d6f") == "Cip68Demo"
+    assert _asset_name_text("000643b0436861696e") == "Chain"  # the (100) reference prefix
 
     store = SqliteStore()
     hexname = "436861696e4964784e4654"  # "ChainIdxNFT"

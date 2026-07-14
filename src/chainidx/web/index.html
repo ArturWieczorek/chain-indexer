@@ -433,14 +433,22 @@
           api(`/assets/${policyId}/${assetName}`),
           api("/config"),
         ]);
-        const name = a.asset_name_text
-          ? `${esc(a.asset_name_text)} <span class="muted">(${esc(a.asset_name)})</span>`
+        // Prefer the metadata name (CIP-25/68), then the decoded asset name, then
+        // fall back to the raw hex.
+        const readable = (a.metadata && a.metadata.name) || a.asset_name_text;
+        const name = readable
+          ? `${esc(readable)} <span class="muted">(${esc(a.asset_name)})</span>`
           : esc(a.asset_name) || "(no name)";
         let imgPanel = "";
         if (a.metadata && a.metadata.image) {
           const src = imageSrc(a.metadata.image, cfg.ipfs_gateway);
           if (src)
-            imgPanel = `<div class="panel"><img src="${esc(src)}" alt="${esc(name)}" style="max-width:260px;height:auto;border-radius:6px" /></div>`;
+            // If the image cannot load (dead link, unreachable gateway), replace the
+            // broken-image icon with a readable note instead.
+            imgPanel =
+              `<div class="panel"><img src="${esc(src)}" alt="${esc(name)}" ` +
+              `style="max-width:260px;height:auto;border-radius:6px" ` +
+              `onerror="this.parentNode.innerHTML='<span class=&quot;muted&quot;>image did not load</span>'" /></div>`;
         }
         let metaPanel = "";
         if (a.metadata) {
