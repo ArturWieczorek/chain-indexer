@@ -19,6 +19,7 @@ instead. Install the driver with ``pip install 'chainidx[postgres]'``.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from typing import Any
 
@@ -52,8 +53,16 @@ _ID_TABLES = frozenset(
 
 
 def _to_pg(sql: str) -> str:
-    """Translate a SQLite statement to its Postgres equivalent."""
-    return sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY").replace("?", "%s")
+    """Translate a SQLite statement to its Postgres equivalent.
+
+    SQLite's ``INTEGER`` is 64-bit; Postgres's is 32-bit, which overflows on
+    lovelace amounts. So an id column becomes ``BIGSERIAL`` and every other
+    ``INTEGER`` becomes ``BIGINT`` (as db-sync uses wide numeric types). Foreign
+    keys then line up (all ``int8``).
+    """
+    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+    sql = sql.replace("INTEGER", "BIGINT")
+    return sql.replace("?", "%s")
 
 
 def _wants_id(sql: str) -> bool:
@@ -100,20 +109,33 @@ class _PgCursor:
 
 
 class _PgConn:
-    """Enough of the sqlite3.Connection surface for the store to run unchanged."""
+    """Enough of the sqlite3.Connection surface for the store to run unchanged.
+
+    psycopg connections are not thread-safe, and FastAPI runs the read endpoints in
+    a worker-thread pool while the follower writes on the event-loop thread. So each
+    thread gets its own connection (thread-local), which is how the shared store can
+    be used from both at once, as it was with SQLite.
+    """
 
     def __init__(self, dsn: str) -> None:
-        import psycopg
+        self._dsn = dsn
+        self._local = threading.local()
 
-        self._pg = psycopg.connect(dsn, autocommit=True, row_factory=_row_factory)
-        self._tx: Any = None
+    def _pg(self) -> Any:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            import psycopg
+
+            conn = psycopg.connect(self._dsn, autocommit=True, row_factory=_row_factory)
+            self._local.conn = conn
+        return conn
 
     def execute(self, sql: str, params: Sequence[Any] = ()) -> _PgCursor:
         text = _to_pg(sql)
         want_id = _wants_id(sql)
         if want_id:
             text += " RETURNING id"
-        cursor = self._pg.cursor()
+        cursor = self._pg().cursor()
         cursor.execute(text, tuple(params))
         lastrowid = None
         if want_id:
@@ -122,23 +144,26 @@ class _PgConn:
         return _PgCursor(cursor, lastrowid)
 
     def executemany(self, sql: str, seq: Sequence[Sequence[Any]]) -> None:
-        cursor = self._pg.cursor()
+        cursor = self._pg().cursor()
         cursor.executemany(_to_pg(sql), [tuple(row) for row in seq])
 
     def commit(self) -> None:
         pass  # the connection is in autocommit mode
 
     def __enter__(self) -> _PgConn:
-        self._tx = self._pg.transaction()
-        self._tx.__enter__()
+        self._local.tx = self._pg().transaction()
+        self._local.tx.__enter__()
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
-        tx, self._tx = self._tx, None
+        tx = self._local.tx
+        self._local.tx = None
         return tx.__exit__(exc_type, exc, tb)
 
     def close(self) -> None:
-        self._pg.close()
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
 
 
 class PostgresStore(SqliteStore):

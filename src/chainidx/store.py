@@ -892,8 +892,8 @@ class SqliteStore:
         rows = self._conn.execute(
             "SELECT slot_no / ? AS epoch_no, COUNT(*) AS blocks, "
             "COALESCE(SUM(tx_count), 0) AS txs, MIN(slot_no) AS start_slot, "
-            "MAX(slot_no) AS end_slot FROM block GROUP BY slot_no / ? ORDER BY epoch_no DESC",
-            (epoch_length, epoch_length),
+            "MAX(slot_no) AS end_slot FROM block GROUP BY epoch_no ORDER BY epoch_no DESC",
+            (epoch_length,),
         ).fetchall()
         return [
             EpochSummary(
@@ -931,8 +931,8 @@ class SqliteStore:
             "SELECT b.slot_no / ? AS epoch_no, COUNT(DISTINCT b.id) AS blocks, "
             "COUNT(t.id) AS txs, COALESCE(SUM(t.fee), 0) AS fees "
             "FROM block b LEFT JOIN tx t ON t.block_id = b.id "
-            "GROUP BY b.slot_no / ? ORDER BY epoch_no DESC LIMIT ?",
-            (epoch_length, epoch_length, limit),
+            "GROUP BY epoch_no ORDER BY epoch_no DESC LIMIT ?",
+            (epoch_length, limit),
         ).fetchall()
         return [
             EpochStats(
@@ -961,7 +961,10 @@ class SqliteStore:
             "COALESCE(SUM(o.lovelace), 0) AS out_total "
             "FROM tx t JOIN block b ON b.id = t.block_id "
             "LEFT JOIN tx_out o ON o.tx_id = t.id "
-            "GROUP BY t.id ORDER BY t.id DESC LIMIT ?",
+            # Group by every non-aggregated column so this is valid on Postgres
+            # too (SQLite is laxer and would accept just t.id).
+            "GROUP BY t.id, t.hash, t.fee, b.hash, b.block_no, b.slot_no "
+            "ORDER BY t.id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [
@@ -1355,8 +1358,8 @@ class SqliteStore:
         """Return ``(epoch_no, block_count)`` for a pool's minted blocks, oldest first."""
         rows = self._conn.execute(
             "SELECT slot_no / ? AS epoch_no, COUNT(*) AS n FROM block "
-            "WHERE issuer = ? GROUP BY slot_no / ? ORDER BY epoch_no",
-            (epoch_length, pool_id, epoch_length),
+            "WHERE issuer = ? GROUP BY epoch_no ORDER BY epoch_no",
+            (epoch_length, pool_id),
         ).fetchall()
         return [(r["epoch_no"], r["n"]) for r in rows]
 

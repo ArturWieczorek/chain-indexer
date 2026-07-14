@@ -26,12 +26,28 @@ Choosing a backend is one config field: set `postgres_dsn` (or
 empty and it stays on SQLite. The driver is an optional extra: `pip install
 'chainidx[postgres]'`.
 
-## Verified against a real Postgres
+## Verified against a real Postgres (and what it took)
 
 The module is excluded from the coverage gate (it needs a live server, like the
-`ogmios`/`node` clients), and was verified against a real Postgres: applying blocks,
-address balances, pool detail, resolved inputs, and a **reorg rollback** all behave
-exactly as on SQLite.
+`ogmios`/`node` clients), and was verified against a real Postgres by running the
+whole live indexer into it: applying blocks, address balances, pool detail,
+resolved inputs, a **reorg rollback**, and every explorer endpoint under
+concurrent load all behave as on SQLite.
+
+Getting there was honest work, and three things did not come for free. The adapter
+gained two of them (still additive); the third touched a handful of queries:
+
+- **64-bit amounts.** SQLite's `INTEGER` is 64-bit; Postgres's is 32-bit, which
+  overflows on lovelace. The adapter maps `INTEGER` -> `BIGINT` (and ids to
+  `BIGSERIAL`) - the wide-numeric point chapter 18 makes about db-sync.
+- **Thread safety.** psycopg connections are not thread-safe, and FastAPI serves
+  the read endpoints from a worker-thread pool while the follower writes on the
+  event loop. So the adapter keeps a connection **per thread**; SQLite tolerated a
+  single shared connection, Postgres does not.
+- **Portable `GROUP BY`.** SQLite lets you select columns that are not in the
+  `GROUP BY`; Postgres does not. A few queries were rewritten to standard SQL
+  (grouping by the output alias, and listing every non-aggregated column). This is
+  the one non-additive change - and it makes the SQLite queries more correct too.
 
 ## When to use which, and mainnet
 

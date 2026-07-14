@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.45.1] - Postgres backend fixes and a beginner README
+
+### Fixed
+
+- The Postgres backend now runs the full live server: `INTEGER`->`BIGINT` for
+  64-bit lovelace, per-thread psycopg connections (FastAPI's worker pool), and
+  three `slot_no / ?` queries rewritten to standard `GROUP BY` (portable, and
+  identical results on SQLite).
+
+### Changed
+
+- The README is rewritten as a step-by-step, beginner-friendly guide (install,
+  config file, SQLite vs Postgres, running it, optional features).
+
 ## [1.45.0] - A Postgres backend
 
 ### Added
