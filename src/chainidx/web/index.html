@@ -335,11 +335,31 @@
           `<tr><th>Asset</th><th>Policy</th><th>Quantity</th><th>Transaction</th></tr>${rows}</table></div>`;
       }
 
+      // Resolve a metadata image reference to something an <img> can load:
+      // http(s)/data as-is, ipfs:// through the configured gateway (or null).
+      function imageSrc(image, gateway) {
+        const url = Array.isArray(image) ? image.join("") : String(image || "");
+        if (/^(https?:|data:)/.test(url)) return url;
+        if (url.startsWith("ipfs://")) {
+          return gateway ? gateway.replace(/\/$/, "") + "/" + url.slice(7) : null;
+        }
+        return null;
+      }
+
       async function assetPage(policyId, assetName) {
-        const a = await api(`/assets/${policyId}/${assetName}`);
+        const [a, cfg] = await Promise.all([
+          api(`/assets/${policyId}/${assetName}`),
+          api("/config"),
+        ]);
         const name = a.asset_name_text
           ? `${esc(a.asset_name_text)} <span class="muted">(${esc(a.asset_name)})</span>`
           : esc(a.asset_name) || "(no name)";
+        let imgPanel = "";
+        if (a.metadata && a.metadata.image) {
+          const src = imageSrc(a.metadata.image, cfg.ipfs_gateway);
+          if (src)
+            imgPanel = `<div class="panel"><img src="${esc(src)}" alt="${esc(name)}" style="max-width:260px;height:auto;border-radius:6px" /></div>`;
+        }
         let metaPanel = "";
         if (a.metadata) {
           const rows = Object.entries(a.metadata)
@@ -359,6 +379,7 @@
           `<div>policy</div><div class="wrap">${link("policy", a.policy_id, a.policy_id)}</div>` +
           `<div>quantity</div><div>${a.quantity}</div>` +
           `<div>holders</div><div>${a.holders}</div></div></div>` +
+          imgPanel +
           metaPanel;
       }
 

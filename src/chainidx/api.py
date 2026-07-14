@@ -308,8 +308,15 @@ def create_app(
     network: NetworkParams | None = None,
     mempool_source: Callable[[], MempoolStatus] | None = None,
     metadata_fetcher: Callable[[str], dict[str, Any] | None] | None = None,
+    ipfs_gateway: str | None = None,
 ) -> FastAPI:
     app = FastAPI(title="chain-indexer", description="A mini Cardano chain indexer API")
+
+    @app.get("/config")
+    def config() -> dict[str, Any]:
+        # Client-side configuration the explorer reads: an IPFS gateway lets it
+        # render ipfs:// images (off by default; set CHAINIDX_IPFS_GATEWAY).
+        return {"ipfs_gateway": ipfs_gateway}
 
     @app.get("/mempool")
     def mempool() -> dict[str, Any]:

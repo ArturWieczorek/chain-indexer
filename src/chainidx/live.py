@@ -37,9 +37,10 @@ def create_live_app(
     network: NetworkParams | None = None,
     mempool_source: Callable[[], MempoolStatus] | None = None,
     metadata_fetcher: Callable[[str], dict[str, object] | None] | None = None,
+    ipfs_gateway: str | None = None,
 ) -> FastAPI:
     """The explorer app plus a ``/live`` page and a ``/stream`` WebSocket."""
-    app = create_explorer_app(store, network, mempool_source, metadata_fetcher)
+    app = create_explorer_app(store, network, mempool_source, metadata_fetcher, ipfs_gateway)
 
     @app.get("/live", response_class=HTMLResponse)
     def live_page() -> str:
@@ -101,7 +102,8 @@ async def _run_live(socket_path: str, magic: int, db: str) -> None:  # pragma: n
     follower = Follower(source, store, bus=bus)
     mempool_client = MempoolClient(socket_path, magic)
     fetcher = fetch_pool_metadata if os.environ.get("CHAINIDX_FETCH_METADATA") else None
-    app = create_live_app(store, bus, load_network(), mempool_client.status_sync, fetcher)
+    gateway = os.environ.get("CHAINIDX_IPFS_GATEWAY") or None
+    app = create_live_app(store, bus, load_network(), mempool_client.status_sync, fetcher, gateway)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning"))
     print("live view on http://127.0.0.1:8000/live")
     await asyncio.gather(server.serve(), follower.run(), _snapshot_loop(store, socket_path, magic))

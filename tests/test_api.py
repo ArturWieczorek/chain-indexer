@@ -171,6 +171,13 @@ def test_pool_detail_on_chain_details() -> None:
     assert "registered_time" in d  # derived from the registration block's slot
 
 
+def test_config_endpoint_exposes_ipfs_gateway() -> None:
+    store = SqliteStore()
+    assert TestClient(create_app(store)).get("/config").json() == {"ipfs_gateway": None}
+    api = TestClient(create_app(store, ipfs_gateway="https://gw/ipfs/"))
+    assert api.get("/config").json() == {"ipfs_gateway": "https://gw/ipfs/"}
+
+
 def test_pool_offchain_metadata_fetched_when_enabled() -> None:
     store = SqliteStore()
     reg = PoolRegistration("poolM", 1000, 0.02, "e0" + "11" * 28, metadata_url="http://x/p.json")

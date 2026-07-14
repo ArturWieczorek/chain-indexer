@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.34.0] - Asset images
+
+### Added
+
+- `create_app` gains an `ipfs_gateway` (from `CHAINIDX_IPFS_GATEWAY`) and a
+  `/config` endpoint exposing it.
+- The asset page renders an image from CIP-25/68 metadata, resolving `ipfs://`
+  through the configured gateway.
+
 ## [1.33.0] - Off-chain pool metadata
 
 ### Added
