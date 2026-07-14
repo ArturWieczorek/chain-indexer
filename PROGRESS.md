@@ -32,3 +32,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch26 - Accounts and rewards (v1.8.0)
 - [x] ch27 - Account links in the UI (v1.9.0)
 - [x] ch28 - Transaction detail (v1.10.0)
+- [x] ch29 - Controlled stake (v1.11.0)

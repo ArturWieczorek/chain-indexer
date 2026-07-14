@@ -216,6 +216,7 @@
           `<div>stake address</div><div>${esc(a.stake_address)}</div>` +
           `<div>registered</div><div>${a.registered}</div>` +
           `<div>delegated to</div><div>${a.delegated_to ? link("pool", a.delegated_to, short(a.delegated_to)) : "<span class='muted'>-</span>"}</div>` +
+          `<div>controlled stake</div><div class="lovelace">${ada(a.controlled_stake || 0)}</div>` +
           `<div>rewards</div><div class="lovelace">${ada(a.reward)}</div>` +
           `</div></div>`;
       }

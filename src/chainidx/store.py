@@ -160,6 +160,10 @@ class Store(Protocol):
         """Return the snapshotted delegation/reward for a stake credential."""
         ...
 
+    def controlled_stake(self, stake_credential: str) -> int:
+        """Return the unspent lovelace in outputs whose stake part is this."""
+        ...
+
     def dreps(self) -> tuple[str, ...]:
         """Return the DRep ids that are registered and not retired."""
         ...
@@ -391,6 +395,16 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "  delegated_pool TEXT,"
             "  reward         INTEGER NOT NULL"
             ")",
+        ),
+    ),
+    (
+        8,
+        (
+            # The stake credential embedded in each output's base address, so we
+            # can total the ada an account controls (chapter 29). Populated for
+            # new outputs; older rows stay NULL.
+            "ALTER TABLE tx_out ADD COLUMN stake_cred TEXT",
+            "CREATE INDEX idx_tx_out_stake ON tx_out (stake_cred)",
         ),
     ),
 ]
@@ -877,6 +891,14 @@ class SqliteStore:
             delegated_pool=row["delegated_pool"],
             reward=row["reward"],
         )
+
+    def controlled_stake(self, stake_credential: str) -> int:
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(lovelace), 0) AS total FROM tx_out "
+            "WHERE stake_cred = ? AND consumed_by_tx_id IS NULL",
+            (stake_credential,),
+        ).fetchone()
+        return int(row["total"])
 
     def dreps(self) -> tuple[str, ...]:
         rows = self._conn.execute(

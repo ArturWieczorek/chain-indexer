@@ -88,6 +88,7 @@ def test_account_with_delegation_and_rewards() -> None:
     account = api.get("/accounts/cred1").json()
     assert account["registered"] is True
     assert account["reward"] == 500
+    assert "controlled_stake" in account
     # snapshot pool is None, so it falls back to the on-chain delegation.
     assert account["delegated_to"] == "poolX"
 

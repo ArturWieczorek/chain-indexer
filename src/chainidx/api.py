@@ -264,6 +264,7 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
             "registered": store.is_stake_registered(cred),
             "delegated_to": _pool_display(delegated) if delegated else None,
             "reward": state.reward if state else 0,
+            "controlled_stake": store.controlled_stake(cred),
         }
 
     @app.get("/governance/actions")

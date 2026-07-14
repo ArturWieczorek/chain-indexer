@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.11.0] - Controlled stake
+
+### Added
+
+- `stake_credential_of` + a `stake_cred` column on `tx_out` (migration 8);
+  `store.controlled_stake`; `/accounts/{stake}` and the account page show
+  controlled stake.
+
 ## [1.10.0] - Transaction detail
 
 ### Added

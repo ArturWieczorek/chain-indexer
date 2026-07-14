@@ -1,7 +1,15 @@
 """Tests for transaction indexing: outputs, inputs, assets, and balances."""
 
+from chainidx.indexers import stake_credential_of
 from chainidx.model import Asset, Block, Tx, TxIn, TxOut
 from chainidx.store import SqliteStore
+
+# A real 57-byte base address; its last 28 bytes are the stake credential.
+BASE_ADDR = (
+    "00fe75e65309653a8a1e04833eff66807d265ee7b203db4426ffd505b9"
+    "e9546949f50285fd15493fe5ba3ffc8bac4aef1c34f5a294d66be825"
+)
+STAKE_CRED = "e9546949f50285fd15493fe5ba3ffc8bac4aef1c34f5a294d66be825"
 
 
 def blk(block_no: int, block_hash: str, prev_hash: str, txs: tuple[Tx, ...]) -> Block:
@@ -12,6 +20,24 @@ def blk(block_no: int, block_hash: str, prev_hash: str, txs: tuple[Tx, ...]) -> 
         prev_hash=prev_hash,
         txs=txs,
     )
+
+
+def test_stake_credential_extraction() -> None:
+    assert stake_credential_of(BASE_ADDR) == STAKE_CRED
+    assert stake_credential_of("alice") is None  # not hex
+    assert stake_credential_of("00" + "11" * 20) is None  # wrong length
+
+
+def test_controlled_stake_sums_unspent_outputs_by_stake_credential() -> None:
+    store = SqliteStore()
+    store.apply_block(blk(1, "b1", "genesis", (Tx("tx1", outputs=(TxOut(BASE_ADDR, 5_000_000),)),)))
+    assert store.controlled_stake(STAKE_CRED) == 5_000_000
+
+    # Spending that output drops the controlled stake to zero.
+    spend = Tx("tx2", inputs=(TxIn("tx1", 0),), outputs=(TxOut("addr2", 1),))
+    store.apply_block(blk(2, "b2", "b1", (spend,)))
+    assert store.controlled_stake(STAKE_CRED) == 0
+    store.close()
 
 
 def test_outputs_credit_their_address() -> None:

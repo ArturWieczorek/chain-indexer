@@ -49,15 +49,38 @@ class Indexer(Protocol):
         ...
 
 
+def stake_credential_of(address: str) -> str | None:
+    """The 28-byte stake credential embedded in a base address, or ``None``.
+
+    A base address is a 57-byte value: a 1-byte header, a 28-byte payment
+    credential, then a 28-byte stake credential (bytes 29..57). Enterprise and
+    pointer addresses, and non-hex test ids, have no stake part.
+    """
+    try:
+        raw = bytes.fromhex(address)
+    except ValueError:
+        return None
+    if len(raw) == 57 and (raw[0] >> 4) in (0, 1, 2, 3):
+        return raw[29:57].hex()
+    return None
+
+
 class OutputIndexer:
     """Records transaction outputs and their native assets."""
 
     def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
         for index_no, out in enumerate(tx.outputs):
             cur = conn.execute(
-                "INSERT INTO tx_out (tx_id, block_id, index_no, address, lovelace) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (tx_db_id, block_id, index_no, out.address, out.lovelace),
+                "INSERT INTO tx_out (tx_id, block_id, index_no, address, lovelace, stake_cred) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    tx_db_id,
+                    block_id,
+                    index_no,
+                    out.address,
+                    out.lovelace,
+                    stake_credential_of(out.address),
+                ),
             )
             tx_out_id = cur.lastrowid
             for asset in out.assets:
