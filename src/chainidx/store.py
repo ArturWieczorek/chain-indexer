@@ -54,6 +54,7 @@ from chainidx.model import (
     TxActivity,
     TxDetail,
     TxOut,
+    TxSummary,
     WithdrawalRecord,
 )
 
@@ -119,6 +120,10 @@ class Store(Protocol):
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
         """Return a transaction's block, inputs, and outputs, or ``None``."""
+        ...
+
+    def recent_transactions(self, limit: int = 20) -> list[TxSummary]:
+        """Return the most recent transactions, newest first."""
         ...
 
     def tx_activity(self, tx_hash: str) -> TxActivity:
@@ -816,6 +821,29 @@ class SqliteStore:
             Asset(policy_id=r["policy_id"], asset_name=r["asset_name"], quantity=r["quantity"])
             for r in rows
         )
+
+    def recent_transactions(self, limit: int = 20) -> list[TxSummary]:
+        rows = self._conn.execute(
+            "SELECT t.hash AS tx_hash, t.fee AS fee, b.hash AS block_hash, "
+            "b.block_no AS block_no, b.slot_no AS slot_no, COUNT(o.id) AS out_count, "
+            "COALESCE(SUM(o.lovelace), 0) AS out_total "
+            "FROM tx t JOIN block b ON b.id = t.block_id "
+            "LEFT JOIN tx_out o ON o.tx_id = t.id "
+            "GROUP BY t.id ORDER BY t.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            TxSummary(
+                tx_id=r["tx_hash"],
+                block_hash=r["block_hash"],
+                block_no=r["block_no"],
+                slot_no=r["slot_no"],
+                fee=r["fee"],
+                output_count=r["out_count"],
+                total_output=int(r["out_total"]),
+            )
+            for r in rows
+        ]
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
         row = self._conn.execute(

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.23.0] - Transactions section
+
+### Added
+
+- `TxSummary` model and `store.recent_transactions` (newest first, with per-tx
+  output count and total).
+- `/transactions`; a Transactions nav section and a Latest-transactions panel on
+  the home page, each row linking to the transaction and its block.
+
 ## [1.22.0] - Top addresses and staking accounts
 
 ### Added

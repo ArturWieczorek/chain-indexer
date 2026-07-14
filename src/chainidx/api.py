@@ -34,6 +34,7 @@ from chainidx.model import (
     ResolvedInput,
     TxDetail,
     TxOut,
+    TxSummary,
     WithdrawalRecord,
 )
 from chainidx.network import NetworkParams
@@ -151,6 +152,20 @@ def _resolved_input(i: ResolvedInput) -> dict[str, Any]:
         # UTxO): the explorer then shows the reference without a dead link.
         "resolved": i.address != "",
     }
+
+
+def _tx_summary(summary: TxSummary, network: NetworkParams | None) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "tx_id": summary.tx_id,
+        "block_hash": summary.block_hash,
+        "block_no": summary.block_no,
+        "fee": summary.fee,
+        "output_count": summary.output_count,
+        "total_output": summary.total_output,
+    }
+    if network is not None:
+        out["time"] = network.slot_time(summary.slot_no)
+    return out
 
 
 def _tx(detail: TxDetail) -> dict[str, Any]:
@@ -309,6 +324,10 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
         if found is None:
             raise HTTPException(status_code=404, detail="block not found")
         return _block(found, network)
+
+    @app.get("/transactions")
+    def transactions(limit: int = 20) -> list[dict[str, Any]]:
+        return [_tx_summary(s, network) for s in store.recent_transactions(limit)]
 
     @app.get("/txs/{tx_hash}")
     def tx(tx_hash: str) -> dict[str, Any]:

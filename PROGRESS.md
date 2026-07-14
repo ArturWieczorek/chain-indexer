@@ -44,3 +44,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch38 - The constitutional committee (v1.20.0)
 - [x] ch39 - Reward withdrawals (v1.21.0)
 - [x] ch40 - Top addresses and staking accounts (v1.22.0)
+- [x] ch41 - Transactions section (v1.23.0)

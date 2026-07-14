@@ -368,6 +368,27 @@ def test_address_balance_and_utxos(client: TestClient) -> None:
     assert bob["balance"] == 5_000_000
 
 
+def test_recent_transactions(client: TestClient) -> None:
+    txs = client.get("/transactions").json()
+    # Newest first: tx2 (block 2), then tx1 (block 1).
+    assert [t["tx_id"] for t in txs] == ["tx2", "tx1"]
+    assert txs[0]["block_no"] == 2
+    assert txs[0]["output_count"] == 1
+    assert txs[0]["total_output"] == 5_000_000
+    assert "time" not in txs[0]  # no network configured on the default client
+
+
+def test_recent_transactions_include_time_with_network() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(1, 10, "b1", "genesis", txs=(Tx("tx1", outputs=(TxOut("a", 1_000_000),)),))
+    )
+    net = NetworkParams(system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100)
+    txs = TestClient(create_app(store, net)).get("/transactions").json()
+    assert txs[0]["tx_id"] == "tx1"
+    assert "time" in txs[0]
+
+
 def test_top_addresses_and_accounts() -> None:
     store = SqliteStore()
     # addr1 holds a base address (with a stake credential) worth more than addr2.

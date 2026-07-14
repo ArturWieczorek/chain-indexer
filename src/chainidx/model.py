@@ -288,6 +288,23 @@ class Point:
 
 
 @dataclass(frozen=True)
+class TxSummary:
+    """A transaction as the recent-transactions list shows it (chapter 41).
+
+    Enough to render a row without loading the full detail: which block it is in,
+    its fee, and how many outputs it has for how much total lovelace.
+    """
+
+    tx_id: str
+    block_hash: str
+    block_no: int
+    slot_no: int
+    fee: int
+    output_count: int
+    total_output: int
+
+
+@dataclass(frozen=True)
 class ResolvedInput:
     """An input with the value it spends filled in from the output it consumes.
 
