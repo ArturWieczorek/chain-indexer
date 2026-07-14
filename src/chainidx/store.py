@@ -47,6 +47,7 @@ from chainidx.model import (
     GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
+    MatchRecord,
     MintRecord,
     Point,
     PolicyDetail,
@@ -61,6 +62,7 @@ from chainidx.model import (
     TxSummary,
     WithdrawalRecord,
 )
+from chainidx.patterns import Pattern
 
 
 class Store(Protocol):
@@ -100,6 +102,10 @@ class Store(Protocol):
 
     def utxos(self, address: str) -> tuple[TxOut, ...]:
         """Return an address's unspent outputs."""
+        ...
+
+    def matches(self, pattern: Pattern, spent: str = "unspent") -> tuple[MatchRecord, ...]:
+        """Return outputs matching a watch pattern (kupo-style, chapter 64)."""
         ...
 
     def rollback_to(self, point: Point | None) -> list[str]:
@@ -819,6 +825,73 @@ class SqliteStore:
             )
             outputs.append(TxOut(address=r["address"], lovelace=r["lovelace"], assets=assets))
         return tuple(outputs)
+
+    def matches(self, pattern: Pattern, spent: str = "unspent") -> tuple[MatchRecord, ...]:
+        """Return the outputs matching a watch pattern (kupo-style, chapter 64).
+
+        This is a query over the index we already keep: ``tx_out`` (address, value,
+        datum, and ``consumed_by_tx_id`` for spent-ness) joined to ``ma_tx_out`` for
+        the policy/asset patterns. ``spent`` is ``"unspent"`` (the default, kupo's
+        common case), ``"spent"``, or ``"all"``. The output reference is the
+        transaction hash and output index, as kupo returns it.
+
+        The ``WHERE`` fragments below are fixed strings chosen by the pattern kind;
+        every value the caller supplies is passed as a bound parameter.
+        """
+        where = ["1 = 1"]
+        params: list[object] = []
+        join = ""
+        if pattern.kind == "address":
+            where.append("o.address = ?")
+            params.append(pattern.value)
+        elif pattern.kind == "stake":
+            where.append("o.stake_cred = ?")
+            params.append(pattern.value)
+        elif pattern.kind == "policy":
+            join = "JOIN ma_tx_out m ON m.tx_out_id = o.id"
+            where.append("m.policy_id = ?")
+            params.append(pattern.value)
+        elif pattern.kind == "asset":
+            join = "JOIN ma_tx_out m ON m.tx_out_id = o.id"
+            where.append("m.policy_id = ? AND m.asset_name = ?")
+            params.extend((pattern.value, pattern.asset_name))
+        elif pattern.kind != "all":
+            return ()
+        if spent == "unspent":
+            where.append("o.consumed_by_tx_id IS NULL")
+        elif spent == "spent":
+            where.append("o.consumed_by_tx_id IS NOT NULL")
+        rows = self._conn.execute(
+            "SELECT DISTINCT o.id AS id, o.index_no AS index_no, o.address AS address, "
+            "o.lovelace AS lovelace, o.datum AS datum, t.hash AS tx_hash, "
+            "o.consumed_by_tx_id AS spent_id "
+            f"FROM tx_out o JOIN tx t ON t.id = o.tx_id {join} "
+            f"WHERE {' AND '.join(where)} ORDER BY o.id",
+            tuple(params),
+        ).fetchall()
+        records: list[MatchRecord] = []
+        for r in rows:
+            asset_rows = self._conn.execute(
+                "SELECT policy_id, asset_name, quantity FROM ma_tx_out "
+                "WHERE tx_out_id = ? ORDER BY id",
+                (r["id"],),
+            ).fetchall()
+            assets = tuple(
+                Asset(policy_id=a["policy_id"], asset_name=a["asset_name"], quantity=a["quantity"])
+                for a in asset_rows
+            )
+            records.append(
+                MatchRecord(
+                    tx_hash=r["tx_hash"],
+                    output_index=r["index_no"],
+                    address=r["address"],
+                    lovelace=int(r["lovelace"]),
+                    assets=assets,
+                    datum=r["datum"] or "",
+                    spent=r["spent_id"] is not None,
+                )
+            )
+        return tuple(records)
 
     def rollback_to(self, point: Point | None) -> list[str]:
         """Undo every block after ``point`` and return the removed hashes.

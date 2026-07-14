@@ -100,6 +100,23 @@ class StakeAccountBalance:
 
 
 @dataclass(frozen=True)
+class MatchRecord:
+    """An output matching a watch pattern, kupo-style (chapter 64).
+
+    Identified by its output reference (``tx_hash#index``), with the value, any
+    assets, the inline datum (hex, or ``""``), and whether it has been spent.
+    """
+
+    tx_hash: str
+    output_index: int
+    address: str
+    lovelace: int
+    assets: tuple[Asset, ...]
+    datum: str
+    spent: bool
+
+
+@dataclass(frozen=True)
 class MintRecord:
     """A mint or burn event, for the Mint Transactions view (chapter 49).
 

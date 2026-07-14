@@ -175,6 +175,24 @@ def test_pool_detail_on_chain_details() -> None:
     assert "registered_time" in d  # derived from the registration block's slot
 
 
+def test_matches_endpoint_looks_up_outputs_by_pattern(client: TestClient) -> None:
+    # bob holds the one unspent output; alice's was spent in block 2.
+    hits = client.get("/matches/bob").json()
+    assert len(hits) == 1
+    assert hits[0]["output_reference"] == "tx2#0"
+    assert hits[0]["value"]["coins"] == 5_000_000
+    assert hits[0]["value"]["assets"][0]["policy_id"] == "pol"
+    assert hits[0]["spent"] is False
+
+    assert client.get("/matches/alice").json() == []  # spent, so no unspent match
+    spent = client.get("/matches/alice?spent=all").json()
+    assert len(spent) == 1
+    assert spent[0]["spent"] is True
+
+    assert [h["output_reference"] for h in client.get("/matches/*").json()] == ["tx2#0"]
+    assert client.get("/matches/bob?spent=bogus").status_code == 422
+
+
 def test_config_endpoint_exposes_ipfs_gateway() -> None:
     store = SqliteStore()
     assert TestClient(create_app(store)).get("/config").json() == {"ipfs_gateway": None}

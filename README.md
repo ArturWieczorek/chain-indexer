@@ -123,7 +123,11 @@ repo (change the paths to match your node):
   - mainnet: `764824073`
 - **`genesis_path`** - the network's `shelley-genesis.json` (used to turn slots
   into dates and epochs).
-- **`db_path`** - where the SQLite database file goes. `chain.db` is fine.
+- **`db_path`** - where the SQLite database file goes. A bare name like `chain.db`
+  is created **in the directory you run the indexer from** (so `chain-indexer/chain.db`
+  if you launch it from the repo). Give an absolute path like
+  `/var/lib/chainidx/chain.db` if you want it somewhere fixed. The file is created on
+  first run; delete it to start indexing from scratch.
 
 ### Step 3 - start the indexer (SQLite)
 
@@ -176,9 +180,30 @@ and `db_path` is ignored):
 }
 ```
 
-Start it the same way: `CHAINIDX_CONFIG=config.json python -m chainidx.live`. The
-DSN is a standard libpq connection string, for example
-`"host=localhost port=5432 dbname=chainidx user=me password=secret"`.
+Start it the same way: `CHAINIDX_CONFIG=config.json python -m chainidx.live`.
+
+The DSN is a standard PostgreSQL (libpq) connection string, so it already carries
+everything a non-default server needs - you do not add anything to the code. Include
+only the fields that differ from the defaults:
+
+```json
+{
+  "postgres_dsn": "host=db.example.com port=5544 dbname=chainidx user=alice password=secret sslmode=require"
+}
+```
+
+- **`host`** / **`port`** - where the server is. Omit them for a local server on the
+  default port `5432` (that is why the bare `dbname=chainidx` above works).
+- **`user`** / **`password`** - the login. Omit them if your server trusts you
+  without a password (like a local peer-authenticated setup).
+- **`sslmode=require`** - for a remote server that expects TLS.
+
+> **Keeping the password out of the file.** Any setting can also be given as an
+> environment variable, and it wins over the file. So you can leave the password out
+> of `config.json` and pass the DSN at start time instead:
+> `CHAINIDX_POSTGRES_DSN="host=... password=secret" CHAINIDX_CONFIG=config.json python -m chainidx.live`.
+> (libpq's own `PGPASSWORD` and `~/.pgpass` file work too, since it is a normal
+> PostgreSQL client.)
 
 ---
 

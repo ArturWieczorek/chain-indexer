@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from chainidx.model import Asset, Block, GovActionProposal, GovVote, Tx, TxOut
+from chainidx.model import Asset, Block, GovActionProposal, GovVote, Tx, TxIn, TxOut
+from chainidx.patterns import Pattern
 from chainidx.store import SqliteStore
 
 
@@ -225,4 +226,68 @@ def test_blocks_in_epoch_lists_blocks_newest_first() -> None:
     assert [b.block_no for b in epoch0] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
     assert [b.block_no for b in store.blocks_in_epoch(1, 100)] == [12, 11, 10]
     assert store.blocks_in_epoch(99, 100) == []
+    store.close()
+
+
+# A 57-byte base address (header + 28-byte payment cred + 28-byte stake cred),
+# so the store derives its stake credential the way a real address would.
+_BASE_ADDR = "00" + "11" * 28 + "22" * 28
+_STAKE_CRED = "22" * 28
+
+
+def _matches_store() -> SqliteStore:
+    """A store with one spent output and two unspent ones, for match queries."""
+    store = SqliteStore()
+    store.apply_block(
+        block(
+            1,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "tx1",
+                    outputs=(
+                        TxOut(_BASE_ADDR, 5_000_000, assets=(Asset("polX", "4869", 1),)),
+                        TxOut("addrPlain", 2_000_000),
+                    ),
+                ),
+                # tx2 spends tx1's first output, so it becomes spent.
+                Tx("tx2", inputs=(TxIn("tx1", 0),), outputs=(TxOut("addrOther", 1_000_000),)),
+            ),
+        )
+    )
+    return store
+
+
+def test_matches_by_address_respects_spent_status() -> None:
+    store = _matches_store()
+    pattern = Pattern("address", _BASE_ADDR)
+    assert store.matches(pattern, "unspent") == ()  # the output was spent by tx2
+    spent = store.matches(pattern, "spent")
+    assert len(spent) == 1
+    assert spent[0].tx_hash == "tx1"
+    assert spent[0].output_index == 0
+    assert spent[0].lovelace == 5_000_000
+    assert spent[0].spent is True
+    assert spent[0].assets == (Asset("polX", "4869", 1),)
+    assert store.matches(pattern, "all") == spent
+    store.close()
+
+
+def test_matches_by_stake_policy_and_asset() -> None:
+    store = _matches_store()
+    assert len(store.matches(Pattern("stake", _STAKE_CRED), "all")) == 1
+    assert len(store.matches(Pattern("policy", "polX"), "all")) == 1
+    assert len(store.matches(Pattern("asset", "polX", "4869"), "all")) == 1
+    assert store.matches(Pattern("asset", "polX", "beef"), "all") == ()
+    store.close()
+
+
+def test_matches_all_and_unknown_kind() -> None:
+    store = _matches_store()
+    unspent = store.matches(Pattern("all"), "unspent")
+    assert {m.address for m in unspent} == {"addrPlain", "addrOther"}
+    assert len(store.matches(Pattern("all"), "all")) == 3
+    assert len(store.matches(Pattern("all"), "spent")) == 1
+    assert store.matches(Pattern("nonsense"), "all") == ()  # unrecognised kind
     store.close()

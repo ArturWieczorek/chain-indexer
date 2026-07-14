@@ -31,6 +31,7 @@ from chainidx.model import (
     GovActionProposal,
     GovActionSummary,
     GovVoteRecord,
+    MatchRecord,
     MempoolStatus,
     PoolSummary,
     ResolvedInput,
@@ -40,6 +41,7 @@ from chainidx.model import (
     WithdrawalRecord,
 )
 from chainidx.network import NetworkParams
+from chainidx.patterns import parse_pattern
 from chainidx.store import Store
 
 
@@ -123,6 +125,22 @@ def _output(output: TxOut) -> dict[str, Any]:
         "address": _address_display(output.address),
         "lovelace": output.lovelace,
         "assets": [_asset(a) for a in output.assets],
+    }
+
+
+def _match(match: MatchRecord) -> dict[str, Any]:
+    """A pattern match, kupo-shaped: an output reference, its value, and spent-ness."""
+    return {
+        "transaction_id": match.tx_hash,
+        "output_index": match.output_index,
+        "output_reference": f"{match.tx_hash}#{match.output_index}",
+        "address": _address_display(match.address),
+        "value": {
+            "coins": match.lovelace,
+            "assets": [_asset(a) for a in match.assets],
+        },
+        "datum": match.datum,
+        "spent": match.spent,
     }
 
 
@@ -433,6 +451,18 @@ def create_app(
             "asset_count": detail.asset_count,
             "assets": [_asset_detail(a) for a in detail.assets],
         }
+
+    @app.get("/matches/{pattern}")
+    def matches(pattern: str, spent: str = "unspent") -> list[dict[str, Any]]:
+        """Look up outputs matching a watch pattern (kupo-style, chapter 64).
+
+        ``pattern`` is an address, a stake address, a policy id,
+        ``policyid.assetname``, or ``*``. ``spent`` filters by spent-ness:
+        ``unspent`` (default), ``spent``, or ``all``.
+        """
+        if spent not in ("unspent", "spent", "all"):
+            raise HTTPException(status_code=422, detail="spent must be unspent, spent, or all")
+        return [_match(m) for m in store.matches(parse_pattern(pattern), spent)]
 
     @app.get("/pools")
     def pools() -> list[dict[str, Any]]:
