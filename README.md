@@ -693,6 +693,23 @@ chainidx events --socket "$SOCK" --magic 42 --policy "$POLICYID" | jq .
 chainidx events --socket "$SOCK" --magic 42 --type rollback   # one line per reorg
 ```
 
+The **event types** you can pass to `--type` (and to a sink's `types` filter) are:
+
+| Type | Emitted when | Carries |
+| --- | --- | --- |
+| `block` | a block is applied | `block_no`, `hash`, `slot`, `tx_count` |
+| `transaction` | per transaction in a block | `tx_hash`, `addresses`, `policies`, `assets`, `lovelace`, `output_count`, `mint_count` |
+| `rollback` | the chain rolls back (a reorg) | `removed` (block hashes, newest first), `count` |
+| `pool_registered` | a stake-pool registration certificate | `pool_id` |
+| `stake_delegated` | a stake delegation certificate | `stake_address`, `pool_id` |
+| `drep_registered` | a DRep registration certificate | `drep_id` |
+| `gov_action_proposed` | a governance action is proposed | `gov_action_id`, `action_type` |
+| `vote_cast` | a governance vote is cast | `gov_action_id`, `vote`, `voter_role` |
+
+Only `transaction` events carry addresses, policies, and assets, so the
+`--address` / `--policy` / `--asset` filters select transaction events; the block,
+rollback, certificate, and governance types are selected with `--type`.
+
 And to start the whole thing (follower + explorer + live view + sinks) with a
 friendly flag instead of the `CHAINIDX_CONFIG` environment variable:
 
