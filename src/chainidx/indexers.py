@@ -27,6 +27,7 @@ present.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from typing import Protocol
 
@@ -265,6 +266,39 @@ class WithdrawalIndexer:
             )
 
 
+class AssetMetadataIndexer:
+    """Records CIP-25 asset metadata from a mint transaction's metadata.
+
+    CIP-25 puts NFT metadata under transaction-metadata label 721, as
+    ``{policy_id: {asset_name: {name, image, ...}}}`` (plus an optional
+    ``version``). We already decode transaction metadata to JSON (chapter 35), so
+    here we read label 721 out of it and store one row per asset, keyed by the
+    asset name in hex to match how asset names are stored elsewhere.
+    """
+
+    def index_tx(self, conn: sqlite3.Connection, block_id: int, tx_db_id: int, tx: Tx) -> None:
+        if not tx.metadata:
+            return
+        cip25 = json.loads(tx.metadata).get("721")
+        if not isinstance(cip25, dict):
+            return
+        for policy_id, assets in cip25.items():
+            if not isinstance(assets, dict):
+                continue  # skips the optional "version" entry
+            for name_key, fields in assets.items():
+                conn.execute(
+                    "INSERT INTO asset_metadata "
+                    "(block_id, tx_id, policy_id, asset_name, metadata) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        block_id,
+                        tx_db_id,
+                        policy_id,
+                        name_key.encode("utf-8").hex(),
+                        json.dumps(fields),
+                    ),
+                )
+
+
 def default_indexers() -> tuple[Indexer, ...]:
     """The indexers a store runs by default, in the order they must run."""
     return (
@@ -273,4 +307,5 @@ def default_indexers() -> tuple[Indexer, ...]:
         CertIndexer(),
         GovIndexer(),
         WithdrawalIndexer(),
+        AssetMetadataIndexer(),
     )

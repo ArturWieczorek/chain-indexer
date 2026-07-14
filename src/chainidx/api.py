@@ -384,7 +384,10 @@ def create_app(
         detail = store.asset_detail(policy_id, asset_name)
         if detail is None:
             raise HTTPException(status_code=404, detail="asset not found")
-        return _asset_detail(detail)
+        out = _asset_detail(detail)
+        raw = store.asset_metadata(policy_id, asset_name)
+        out["metadata"] = json.loads(raw) if raw else None  # CIP-25 (chapter 46)
+        return out
 
     @app.get("/policies/{policy_id}")
     def policy(policy_id: str) -> dict[str, Any]:

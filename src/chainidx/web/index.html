@@ -312,12 +312,26 @@
         const name = a.asset_name_text
           ? `${esc(a.asset_name_text)} <span class="muted">(${esc(a.asset_name)})</span>`
           : esc(a.asset_name) || "(no name)";
+        let metaPanel = "";
+        if (a.metadata) {
+          const rows = Object.entries(a.metadata)
+            .map(([k, v]) => {
+              const val =
+                typeof v === "object" ? `<pre style="margin:0;white-space:pre-wrap">${esc(JSON.stringify(v, null, 2))}</pre>` : esc(String(v));
+              return `<tr><td>${esc(k)}</td><td class="wrap">${val}</td></tr>`;
+            })
+            .join("");
+          metaPanel =
+            `<h2>Metadata (CIP-25)</h2><div class="panel"><table>` +
+            `<tr><th>Field</th><th>Value</th></tr>${rows}</table></div>`;
+        }
         app.innerHTML =
           `<h2>Asset</h2><div class="panel"><div class="kv">` +
           `<div>name</div><div class="wrap">${name}</div>` +
           `<div>policy</div><div class="wrap">${link("policy", a.policy_id, a.policy_id)}</div>` +
           `<div>quantity</div><div>${a.quantity}</div>` +
-          `<div>holders</div><div>${a.holders}</div></div></div>`;
+          `<div>holders</div><div>${a.holders}</div></div></div>` +
+          metaPanel;
       }
 
       async function policyPage(policyId) {

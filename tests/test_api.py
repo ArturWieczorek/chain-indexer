@@ -1,5 +1,7 @@
 """Tests for the REST query API, driven by an in-memory store and a test client."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -536,6 +538,56 @@ def test_protocol_parameters_endpoint() -> None:
     # A later snapshot replaces the previous parameters.
     store.record_protocol_params({"min_fee_a": 45})
     assert api.get("/protocol-parameters").json() == {"min_fee_a": 45}
+
+
+def test_cip25_asset_metadata() -> None:
+    store = SqliteStore()
+    policy = "aa" * 28
+    name_hex = "4d794e4654"  # "MyNFT"
+    md = json.dumps(
+        {
+            "721": {
+                policy: {"MyNFT": {"name": "My NFT", "image": "ipfs://abc", "files": [1, 2]}},
+                "version": 2,
+            }
+        }
+    )
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(
+                Tx(
+                    "mint",
+                    outputs=(TxOut("a", 2_000_000, assets=(Asset(policy, name_hex, 1),)),),
+                    metadata=md,
+                ),
+                Tx("plain", metadata='{"674": {"msg": "hi"}}'),  # metadata, but no 721
+                Tx("bare"),  # no metadata at all
+            ),
+        )
+    )
+    api = TestClient(create_app(store))
+    a = api.get(f"/assets/{policy}/{name_hex}").json()
+    assert a["metadata"]["name"] == "My NFT"
+    assert a["metadata"]["image"] == "ipfs://abc"
+    assert a["metadata"]["files"] == [1, 2]
+
+    # An asset minted without CIP-25 metadata reports null.
+    store2 = SqliteStore()
+    store2.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(Tx("t", outputs=(TxOut("a", 1_000, assets=(Asset("bb" * 28, "01", 1),)),)),),
+        )
+    )
+    b = TestClient(create_app(store2)).get(f"/assets/{'bb' * 28}/01").json()
+    assert b["metadata"] is None
 
 
 def test_asset_name_decoding_and_policy_page() -> None:

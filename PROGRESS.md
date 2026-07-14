@@ -49,3 +49,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch43 - The mempool (local-tx-monitor) (v1.25.0)
 - [x] ch44 - Protocol updates (v1.26.0)
 - [x] ch45 - Submitting transactions (local-tx-submission) (v1.27.0)
+- [x] ch46 - CIP-25 asset metadata (v1.28.0)

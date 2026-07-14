@@ -167,6 +167,10 @@ class Store(Protocol):
         """Return the assets minted under a policy id, or ``None`` if there are none."""
         ...
 
+    def asset_metadata(self, policy_id: str, asset_name: str) -> str | None:
+        """Return an asset's CIP-25 metadata as a JSON string, or ``None``."""
+        ...
+
     def pools(self) -> tuple[str, ...]:
         """Return the pool ids that are registered and not retired."""
         ...
@@ -555,6 +559,23 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             "CREATE INDEX idx_withdrawal_stake ON withdrawal (stake_address)",
         ),
     ),
+    (
+        13,
+        (
+            # CIP-25 asset metadata, parsed from a mint transaction's metadata
+            # (label 721) and keyed by asset (chapter 46). Block-keyed, so it rolls
+            # back with the mint like everything else.
+            "CREATE TABLE asset_metadata ("
+            "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  block_id   INTEGER NOT NULL REFERENCES block(id),"
+            "  tx_id      INTEGER NOT NULL REFERENCES tx(id),"
+            "  policy_id  TEXT    NOT NULL,"
+            "  asset_name TEXT    NOT NULL,"
+            "  metadata   TEXT    NOT NULL"
+            ")",
+            "CREATE INDEX idx_asset_metadata ON asset_metadata (policy_id, asset_name)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -572,6 +593,7 @@ _ROLLBACK_TABLES: tuple[str, ...] = (
     "drep_deregistration",
     "certificate",
     "withdrawal",
+    "asset_metadata",
     "gov_action_proposal",
     "voting_procedure",
     "tx",
@@ -1102,6 +1124,14 @@ class SqliteStore:
             for r in rows
         )
         return PolicyDetail(policy_id=policy_id, asset_count=len(assets), assets=assets)
+
+    def asset_metadata(self, policy_id: str, asset_name: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT metadata FROM asset_metadata "
+            "WHERE policy_id = ? AND asset_name = ? ORDER BY id DESC LIMIT 1",
+            (policy_id, asset_name),
+        ).fetchone()
+        return str(row["metadata"]) if row is not None else None
 
     def pools(self) -> tuple[str, ...]:
         # A pool counts as active if it has a registration and no retirement.

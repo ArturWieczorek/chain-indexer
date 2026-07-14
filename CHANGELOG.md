@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.28.0] - CIP-25 asset metadata
+
+### Added
+
+- Migration 13 `asset_metadata`; `AssetMetadataIndexer` (reads transaction
+  metadata label 721); `store.asset_metadata`.
+- `metadata` on `/assets/{policy_id}/{asset_name}` and a CIP-25 panel on the asset
+  page in the explorer.
+
 ## [1.27.0] - Submitting transactions (local-tx-submission)
 
 ### Added
