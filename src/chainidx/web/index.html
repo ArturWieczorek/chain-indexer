@@ -139,6 +139,21 @@
         background: var(--accent);
         border-color: var(--accent);
       }
+      .backlink {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 1rem;
+        padding: 0.3rem 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-decoration: none;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .backlink:hover { color: var(--accent); border-color: var(--accent); }
     </style>
   </head>
   <body>
@@ -1198,6 +1213,15 @@
           else if (parts[0] === "tx" && parts[1]) await tx(parts[1], parts[2]);
           else if (parts[0] === "address" && parts[1]) await address(parts[1]);
           else await home();
+          // On any page other than home, offer a Back link so a detail page (an
+          // asset, a tx, a pool) returns to wherever you came from - no need to
+          // click the nav section again.
+          if (location.hash && location.hash !== "#/" && location.hash !== "#") {
+            app.insertAdjacentHTML(
+              "afterbegin",
+              `<a href="#" class="muted backlink" onclick="history.back();return false">&larr; Back</a>`,
+            );
+          }
         } catch (e) {
           app.innerHTML = `<div class="panel">Not found (${esc(e.message)}). <a href="#/">Back home</a>.</div>`;
         }
