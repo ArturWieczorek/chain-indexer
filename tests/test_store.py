@@ -56,6 +56,26 @@ def test_get_block_returns_none_for_an_unknown_hash() -> None:
     store.close()
 
 
+def test_epoch_summaries_group_blocks_by_slot() -> None:
+    store = SqliteStore()
+    # block i is at slot i*10; with epoch_length 100, epoch = slot // 100.
+    for i in range(1, 13):
+        store.apply_block(block(i, f"b{i}", "p"))
+
+    summaries = store.epoch_summaries(100)
+    assert summaries[0].epoch_no == 1  # newest epoch first
+    by_epoch = {s.epoch_no: s for s in summaries}
+    assert by_epoch[0].block_count == 9  # slots 10..90
+    assert by_epoch[1].block_count == 3  # slots 100..120
+
+    one = store.epoch_summary(0, 100)
+    assert one is not None
+    assert one.block_count == 9
+    assert one.start_slot == 10
+    assert store.epoch_summary(999, 100) is None
+    store.close()
+
+
 def test_get_block_by_number_and_slot() -> None:
     store = SqliteStore()
     store.apply_block(block(7, "b7", "b6"))  # slot 70 (block_no * 10)

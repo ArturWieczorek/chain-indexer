@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.3.0] - Epochs and the dashboard
+
+### Added
+
+- `chainidx.network.NetworkParams`: slot -> epoch -> wall-clock math, loaded from
+  a Shelley genesis; `EpochSummary` + `store.epoch_summaries`/`epoch_summary`.
+- API `/epochs`, `/epochs/{no}`, `/network`, and block timestamps (params from
+  `CHAINIDX_GENESIS`).
+- Explorer: nav bar, current-epoch banner with progress, an Epochs page, and
+  block times.
+
 ## [1.2.0] - Local-state-query
 
 ### Added

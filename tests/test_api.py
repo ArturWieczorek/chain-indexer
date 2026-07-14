@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chainidx.api import create_app
+from chainidx.network import NetworkParams
 from chainidx.model import (
     Asset,
     Block,
@@ -84,6 +85,38 @@ def test_blocks_latest_and_by_hash(client: TestClient) -> None:
     assert one["tx_hashes"] == ["tx1"]
 
     assert client.get("/blocks/nope").status_code == 404
+
+
+def test_epochs_are_empty_without_network(client: TestClient) -> None:
+    assert client.get("/epochs").json() == []
+    assert client.get("/epochs/0").status_code == 404
+    assert client.get("/network").json()["available"] is False
+
+
+def test_epochs_and_network_with_params() -> None:
+    store = SqliteStore()
+    for i in range(1, 13):  # block i at slot i*10
+        store.apply_block(Block(i, i * 10, f"b{i}", "p", txs=()))
+    network = NetworkParams(
+        system_start="2026-07-13T20:36:52Z", slot_length=0.2, epoch_length=100
+    )
+    api = TestClient(create_app(store, network))
+
+    epochs = api.get("/epochs").json()
+    assert epochs[0]["epoch_no"] == 1  # newest first
+    assert any(e["epoch_no"] == 0 and e["block_count"] == 9 for e in epochs)
+    assert "start_time" in epochs[0]
+
+    assert api.get("/epochs/0").json()["block_count"] == 9
+    assert api.get("/epochs/999").status_code == 404
+
+    net = api.get("/network").json()
+    assert net["available"] is True
+    assert net["current_epoch"] == 1  # tip at slot 120
+
+    block1 = api.get("/blocks/height/1").json()
+    assert block1["epoch_no"] == 0
+    assert "time" in block1
 
 
 def test_blocks_by_height_and_slot(client: TestClient) -> None:

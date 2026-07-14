@@ -19,14 +19,15 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from chainidx.api import create_app
+from chainidx.network import NetworkParams
 from chainidx.store import Store
 
 _INDEX_HTML = (Path(__file__).parent / "web" / "index.html").read_text()
 
 
-def create_explorer_app(store: Store) -> FastAPI:
+def create_explorer_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
     """The API app plus the explorer page served at ``/``."""
-    app = create_app(store)
+    app = create_app(store, network)
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -38,9 +39,10 @@ def create_explorer_app(store: Store) -> FastAPI:
 def create_default_explorer_app() -> FastAPI:  # pragma: no cover - needs a database
     import os
 
+    from chainidx.api import load_network
     from chainidx.store import SqliteStore
 
-    return create_explorer_app(SqliteStore(os.environ.get("CHAINIDX_DB", "chain.db")))
+    return create_explorer_app(SqliteStore(os.environ.get("CHAINIDX_DB", "chain.db")), load_network())
 
 
 def _main() -> None:  # pragma: no cover - starts a server

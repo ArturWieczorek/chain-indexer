@@ -202,6 +202,17 @@ class TxDetail:
 
 
 @dataclass(frozen=True)
+class EpochSummary:
+    """Aggregate stats for one epoch, derived from the indexed blocks (chapter 21)."""
+
+    epoch_no: int
+    block_count: int
+    tx_count: int
+    start_slot: int
+    end_slot: int
+
+
+@dataclass(frozen=True)
 class PoolStake:
     """A stake pool's share of the live stake (chapter 20, from local-state-query).
 

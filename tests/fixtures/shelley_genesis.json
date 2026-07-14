@@ -1,0 +1,8 @@
+{
+  "systemStart": "2026-07-13T20:36:52Z",
+  "slotLength": 0.2,
+  "epochLength": 1000,
+  "activeSlotsCoeff": 0.1,
+  "securityParam": 10,
+  "networkMagic": 42
+}

@@ -30,7 +30,17 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from chainidx.indexers import Indexer, default_indexers
-from chainidx.model import Asset, Block, Point, Tip, Tx, TxDetail, TxIn, TxOut
+from chainidx.model import (
+    Asset,
+    Block,
+    EpochSummary,
+    Point,
+    Tip,
+    Tx,
+    TxDetail,
+    TxIn,
+    TxOut,
+)
 
 
 class Store(Protocol):
@@ -78,6 +88,14 @@ class Store(Protocol):
 
     def latest_blocks(self, limit: int = 20) -> list[Block]:
         """Return the most recently stored blocks, newest first."""
+        ...
+
+    def epoch_summaries(self, epoch_length: int) -> list[EpochSummary]:
+        """Return per-epoch block/tx aggregates, newest epoch first."""
+        ...
+
+    def epoch_summary(self, epoch_no: int, epoch_length: int) -> EpochSummary | None:
+        """Return the aggregate for one epoch, or ``None`` if it has no blocks."""
         ...
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
@@ -502,6 +520,43 @@ class SqliteStore:
         ).fetchall()
         blocks = [self.get_block(r["hash"]) for r in rows]
         return [b for b in blocks if b is not None]
+
+    def epoch_summaries(self, epoch_length: int) -> list[EpochSummary]:
+        # Epoch = slot_no // epoch_length. We group the blocks by that integer
+        # division, so no epoch column is needed on the row.
+        rows = self._conn.execute(
+            "SELECT slot_no / ? AS epoch_no, COUNT(*) AS blocks, "
+            "COALESCE(SUM(tx_count), 0) AS txs, MIN(slot_no) AS start_slot, "
+            "MAX(slot_no) AS end_slot FROM block GROUP BY slot_no / ? ORDER BY epoch_no DESC",
+            (epoch_length, epoch_length),
+        ).fetchall()
+        return [
+            EpochSummary(
+                epoch_no=r["epoch_no"],
+                block_count=r["blocks"],
+                tx_count=r["txs"],
+                start_slot=r["start_slot"],
+                end_slot=r["end_slot"],
+            )
+            for r in rows
+        ]
+
+    def epoch_summary(self, epoch_no: int, epoch_length: int) -> EpochSummary | None:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS blocks, COALESCE(SUM(tx_count), 0) AS txs, "
+            "MIN(slot_no) AS start_slot, MAX(slot_no) AS end_slot FROM block "
+            "WHERE slot_no / ? = ?",
+            (epoch_length, epoch_no),
+        ).fetchone()
+        if row is None or row["blocks"] == 0:
+            return None
+        return EpochSummary(
+            epoch_no=epoch_no,
+            block_count=row["blocks"],
+            tx_count=row["txs"],
+            start_slot=row["start_slot"],
+            end_slot=row["end_slot"],
+        )
 
     def get_tx(self, tx_hash: str) -> TxDetail | None:
         row = self._conn.execute(
