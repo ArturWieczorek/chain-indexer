@@ -125,6 +125,7 @@ def _output(output: TxOut) -> dict[str, Any]:
         "address": _address_display(output.address),
         "lovelace": output.lovelace,
         "assets": [_asset(a) for a in output.assets],
+        "datum_hash": output.datum_hash,
     }
 
 
@@ -140,6 +141,7 @@ def _match(match: MatchRecord) -> dict[str, Any]:
             "assets": [_asset(a) for a in match.assets],
         },
         "datum": match.datum,
+        "datum_hash": match.datum_hash,
         "spent": match.spent,
     }
 
@@ -463,6 +465,18 @@ def create_app(
         if spent not in ("unspent", "spent", "all"):
             raise HTTPException(status_code=422, detail="spent must be unspent, spent, or all")
         return [_match(m) for m in store.matches(parse_pattern(pattern), spent)]
+
+    @app.get("/datums/{datum_hash}")
+    def datum(datum_hash: str) -> dict[str, Any]:
+        """Return the datum bytes for a hash (kupo-style, chapter 67).
+
+        Only datums we have seen inline have a known preimage; a by-reference hash
+        we have never seen inline is a 404.
+        """
+        found = store.get_datum(datum_hash)
+        if found is None:
+            raise HTTPException(status_code=404, detail="datum not found")
+        return {"datum": found}
 
     @app.get("/pools")
     def pools() -> list[dict[str, Any]]:

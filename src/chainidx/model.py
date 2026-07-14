@@ -113,6 +113,7 @@ class MatchRecord:
     lovelace: int
     assets: tuple[Asset, ...]
     datum: str
+    datum_hash: str
     spent: bool
 
 
@@ -155,6 +156,7 @@ class TxOut:
     lovelace: int
     assets: tuple[Asset, ...] = ()
     datum: str = ""  # inline datum CBOR (hex), or "" - carries CIP-68 metadata
+    datum_hash: str = ""  # the datum's blake2b-256 hash (hex), inline or by-reference
 
 
 @dataclass(frozen=True)

@@ -291,3 +291,25 @@ def test_matches_all_and_unknown_kind() -> None:
     assert len(store.matches(Pattern("all"), "spent")) == 1
     assert store.matches(Pattern("nonsense"), "all") == ()  # unrecognised kind
     store.close()
+
+
+def test_get_datum_and_datum_hash_on_matches() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        block(
+            1,
+            "b1",
+            "genesis",
+            txs=(
+                Tx("tx1", outputs=(TxOut("addrD", 2_000_000, datum="d87980", datum_hash="ab12"),)),
+            ),
+        )
+    )
+    # The datum is looked up by its hash, and returned None for an unknown one.
+    assert store.get_datum("ab12") == "d87980"
+    assert store.get_datum("nope") is None
+    # The hash rides along on a match, too.
+    hit = store.matches(Pattern("address", "addrD"), "all")
+    assert hit[0].datum == "d87980"
+    assert hit[0].datum_hash == "ab12"
+    store.close()

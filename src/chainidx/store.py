@@ -108,6 +108,10 @@ class Store(Protocol):
         """Return outputs matching a watch pattern (kupo-style, chapter 64)."""
         ...
 
+    def get_datum(self, datum_hash: str) -> str | None:
+        """Return the datum bytes (hex) for a hash we have seen inline, or ``None``."""
+        ...
+
     def rollback_to(self, point: Point | None) -> list[str]:
         """Undo every block after ``point``; return removed hashes, newest-first."""
         ...
@@ -661,6 +665,16 @@ MIGRATIONS: list[tuple[int, tuple[str, ...]]] = [
             ")",
         ),
     ),
+    (
+        19,
+        (
+            # An output's datum hash (chapter 67), for kupo-style datum lookup. For
+            # an inline datum it is the blake2b-256 of the datum bytes we already
+            # keep; for a by-reference datum it is the hash the output carried.
+            "ALTER TABLE tx_out ADD COLUMN datum_hash TEXT NOT NULL DEFAULT ''",
+            "CREATE INDEX idx_tx_out_datum_hash ON tx_out (datum_hash)",
+        ),
+    ),
 ]
 
 # Leaf tables (everything that references tx or block) are deleted before tx and
@@ -808,7 +822,7 @@ class SqliteStore:
 
     def utxos(self, address: str) -> tuple[TxOut, ...]:
         rows = self._conn.execute(
-            "SELECT id, address, lovelace FROM tx_out "
+            "SELECT id, address, lovelace, datum_hash FROM tx_out "
             "WHERE address = ? AND consumed_by_tx_id IS NULL ORDER BY id",
             (address,),
         ).fetchall()
@@ -823,7 +837,14 @@ class SqliteStore:
                 Asset(policy_id=a["policy_id"], asset_name=a["asset_name"], quantity=a["quantity"])
                 for a in asset_rows
             )
-            outputs.append(TxOut(address=r["address"], lovelace=r["lovelace"], assets=assets))
+            outputs.append(
+                TxOut(
+                    address=r["address"],
+                    lovelace=r["lovelace"],
+                    assets=assets,
+                    datum_hash=r["datum_hash"] or "",
+                )
+            )
         return tuple(outputs)
 
     def matches(self, pattern: Pattern, spent: str = "unspent") -> tuple[MatchRecord, ...]:
@@ -863,8 +884,8 @@ class SqliteStore:
             where.append("o.consumed_by_tx_id IS NOT NULL")
         rows = self._conn.execute(
             "SELECT DISTINCT o.id AS id, o.index_no AS index_no, o.address AS address, "
-            "o.lovelace AS lovelace, o.datum AS datum, t.hash AS tx_hash, "
-            "o.consumed_by_tx_id AS spent_id "
+            "o.lovelace AS lovelace, o.datum AS datum, o.datum_hash AS datum_hash, "
+            "t.hash AS tx_hash, o.consumed_by_tx_id AS spent_id "
             f"FROM tx_out o JOIN tx t ON t.id = o.tx_id {join} "
             f"WHERE {' AND '.join(where)} ORDER BY o.id",
             tuple(params),
@@ -888,10 +909,23 @@ class SqliteStore:
                     lovelace=int(r["lovelace"]),
                     assets=assets,
                     datum=r["datum"] or "",
+                    datum_hash=r["datum_hash"] or "",
                     spent=r["spent_id"] is not None,
                 )
             )
         return tuple(records)
+
+    def get_datum(self, datum_hash: str) -> str | None:
+        """Return the inline-datum bytes (hex) with this hash, if we have seen one.
+
+        We only have a preimage for datums that appeared inline in an output; a
+        by-reference datum hash with no inline sighting returns ``None``.
+        """
+        row = self._conn.execute(
+            "SELECT datum FROM tx_out WHERE datum_hash = ? AND datum != '' LIMIT 1",
+            (datum_hash,),
+        ).fetchone()
+        return str(row["datum"]) if row is not None else None
 
     def rollback_to(self, point: Point | None) -> list[str]:
         """Undo every block after ``point`` and return the removed hashes.
@@ -1062,12 +1096,16 @@ class SqliteStore:
         if row is None:
             return None
         out_rows = self._conn.execute(
-            "SELECT id, address, lovelace FROM tx_out WHERE tx_id = ? ORDER BY index_no",
+            "SELECT id, address, lovelace, datum_hash FROM tx_out "
+            "WHERE tx_id = ? ORDER BY index_no",
             (row["id"],),
         ).fetchall()
         outputs = tuple(
             TxOut(
-                address=r["address"], lovelace=r["lovelace"], assets=self._assets_of_output(r["id"])
+                address=r["address"],
+                lovelace=r["lovelace"],
+                assets=self._assets_of_output(r["id"]),
+                datum_hash=r["datum_hash"] or "",
             )
             for r in out_rows
         )

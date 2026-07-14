@@ -193,6 +193,22 @@ def test_matches_endpoint_looks_up_outputs_by_pattern(client: TestClient) -> Non
     assert client.get("/matches/bob?spent=bogus").status_code == 422
 
 
+def test_datums_endpoint_returns_inline_datum_by_hash() -> None:
+    store = SqliteStore()
+    store.apply_block(
+        Block(
+            1,
+            10,
+            "b1",
+            "genesis",
+            txs=(Tx("tx1", outputs=(TxOut("d", 2_000_000, datum="d87980", datum_hash="ab12"),)),),
+        )
+    )
+    api = TestClient(create_app(store))
+    assert api.get("/datums/ab12").json() == {"datum": "d87980"}
+    assert api.get("/datums/unknown").status_code == 404
+
+
 def test_config_endpoint_exposes_ipfs_gateway() -> None:
     store = SqliteStore()
     assert TestClient(create_app(store)).get("/config").json() == {"ipfs_gateway": None}

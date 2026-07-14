@@ -78,8 +78,8 @@ class OutputIndexer:
         for index_no, out in enumerate(tx.outputs):
             cur = conn.execute(
                 "INSERT INTO tx_out "
-                "(tx_id, block_id, index_no, address, lovelace, stake_cred, datum) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(tx_id, block_id, index_no, address, lovelace, stake_cred, datum, datum_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     tx_db_id,
                     block_id,
@@ -88,6 +88,7 @@ class OutputIndexer:
                     out.lovelace,
                     stake_credential_of(out.address),
                     out.datum,
+                    out.datum_hash,
                 ),
             )
             tx_out_id = cur.lastrowid

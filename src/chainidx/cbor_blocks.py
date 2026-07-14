@@ -151,29 +151,39 @@ def decode_value(value: int | list[Any]) -> tuple[int, tuple[Asset, ...]]:
     return lovelace, tuple(assets)
 
 
-def _inline_datum(output: Any) -> str:
-    """The output's inline datum as hex, or ``""``.
+def _datum_option(output: Any) -> tuple[str, str]:
+    """The output's ``(inline_datum_hex, datum_hash_hex)``.
 
-    In the Conway map form an output can carry ``key 2 = datum_option``, which is
+    In the Conway map form an output carries ``key 2 = datum_option``, which is
     ``[0, datum_hash]`` (a hash reference) or ``[1, CBORTag(24, datum_bytes)]`` (an
-    inline datum). We keep the inline datum's bytes; CIP-68 metadata rides in it.
+    inline datum). For an inline datum we keep its bytes (CIP-68 metadata rides in
+    it) and its hash is the blake2b-256 of exactly those bytes - the same definition
+    the ledger uses, so it matches a datum hash on-chain. For a hash reference we
+    keep the hash but have no preimage.
     """
     if not isinstance(output, Mapping):
-        return ""
+        return "", ""
     option = output.get(2)
-    if isinstance(option, list) and len(option) == 2 and option[0] == 1:
-        inner = option[1]
-        if isinstance(inner, cbor2.CBORTag):
-            return str(inner.value.hex())
-    return ""
+    if isinstance(option, list) and len(option) == 2:
+        if option[0] == 1 and isinstance(option[1], cbor2.CBORTag):
+            datum_bytes = option[1].value
+            return datum_bytes.hex(), _blake2b_256(datum_bytes)
+        if option[0] == 0 and isinstance(option[1], bytes):
+            return "", option[1].hex()
+    return "", ""
 
 
 def _decode_output(output: list[Any]) -> TxOut:
     # Works for both the legacy list form [addr, value] and the Conway map form
     # {0: addr, 1: value, ...}, because both are indexed by 0 and 1.
     lovelace, assets = decode_value(output[1])
+    datum, datum_hash = _datum_option(output)
     return TxOut(
-        address=output[0].hex(), lovelace=lovelace, assets=assets, datum=_inline_datum(output)
+        address=output[0].hex(),
+        lovelace=lovelace,
+        assets=assets,
+        datum=datum,
+        datum_hash=datum_hash,
     )
 
 

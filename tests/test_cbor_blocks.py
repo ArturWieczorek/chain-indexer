@@ -171,12 +171,21 @@ def test_cip68_datum_and_inline_datum_decoding() -> None:
     # A datum that is not a constructor-with-map decodes to an empty map.
     assert decode_cip68_datum(cbor2.dumps([]).hex()) == {}
 
-    # An inline datum on a Conway map output (key 2 = [1, tag24(datum)]).
-    out = {0: b"\x00" * 29, 1: 2_000_000, 2: [1, cbor2.CBORTag(24, bytes.fromhex(datum_hex))]}
-    assert _decode_output(out).datum == datum_hex
-    # A datum hash (tag 0), no datum option, and the legacy list form: no datum.
-    assert _decode_output({0: b"\x00" * 29, 1: 5, 2: [0, b"\xaa" * 32]}).datum == ""
-    assert _decode_output({0: b"\x00" * 29, 1: 5}).datum == ""
+    # An inline datum on a Conway map output (key 2 = [1, tag24(datum)]). Its hash
+    # is the blake2b-256 of exactly the datum bytes (the ledger's definition).
+    import hashlib
+
+    datum_bytes = bytes.fromhex(datum_hex)
+    out = {0: b"\x00" * 29, 1: 2_000_000, 2: [1, cbor2.CBORTag(24, datum_bytes)]}
+    decoded = _decode_output(out)
+    assert decoded.datum == datum_hex
+    assert decoded.datum_hash == hashlib.blake2b(datum_bytes, digest_size=32).hexdigest()
+    # A datum hash reference (tag 0) keeps the hash but has no inline datum.
+    ref = _decode_output({0: b"\x00" * 29, 1: 5, 2: [0, b"\xaa" * 32]})
+    assert ref.datum == ""
+    assert ref.datum_hash == "aa" * 32
+    # No datum option, and the legacy list form: neither datum nor hash.
+    assert _decode_output({0: b"\x00" * 29, 1: 5}).datum_hash == ""
     assert _decode_output([b"\x00" * 29, 5]).datum == ""
 
 
