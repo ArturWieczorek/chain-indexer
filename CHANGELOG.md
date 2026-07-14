@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.14.0] - Governance from CBOR
+
+### Added
+
+- `_decode_proposals`/`_decode_votes` in the CBOR block decoder (tx body keys 20
+  and 19), so the node path indexes real governance proposals and votes.
+
 ## [1.13.0] - Tokens
 
 ### Added

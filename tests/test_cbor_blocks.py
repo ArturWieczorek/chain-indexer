@@ -83,6 +83,34 @@ def test_decoded_block_flows_into_the_store() -> None:
     store.close()
 
 
+def test_decode_governance_proposals_and_votes() -> None:
+    from chainidx.cbor_blocks import _decode_proposals, _decode_votes
+
+    reward = bytes.fromhex("e0" + "11" * 28)
+    # An InfoAction proposal (gov_action tag 6).
+    body_prop = {20: {(100000000, reward, (6,), ("http://x/info", b"\x00" * 32))}}
+    proposals = _decode_proposals(body_prop, "abc123")
+    assert len(proposals) == 1
+    assert proposals[0].gov_action_id == "abc123#0"
+    assert proposals[0].action_type == "InfoAction"
+    assert proposals[0].deposit == 100000000
+
+    gov_txid = bytes.fromhex("cc" * 32)
+    drep = bytes.fromhex("dd" * 28)
+    pool = bytes.fromhex("ee" * 28)
+    body_votes = {
+        19: {
+            (2, drep): {(gov_txid, 0): [1, None]},  # DRep Yes
+            (4, pool): {(gov_txid, 0): [0, None]},  # SPO No
+        }
+    }
+    votes = _decode_votes(body_votes)
+    by_role = {v.voter_role: v.vote for v in votes}
+    assert by_role["DRep"] == "Yes"
+    assert by_role["SPO"] == "No"
+    assert votes[0].gov_action_id == f"{'cc' * 32}#0"
+
+
 def test_decode_value_handles_ada_and_multi_asset() -> None:
     lovelace, assets = decode_value(1_500_000)
     assert lovelace == 1_500_000

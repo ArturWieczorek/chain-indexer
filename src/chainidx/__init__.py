@@ -4,4 +4,4 @@ This package is built one chapter at a time. Each chapter adds a focused module
 and its tests. See the chapters/ directory for the written course.
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"

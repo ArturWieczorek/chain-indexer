@@ -41,6 +41,8 @@ from chainidx.model import (
     Block,
     Certificate,
     DRepRegistration,
+    GovActionProposal,
+    GovVote,
     PoolRegistration,
     StakeDelegation,
     StakeRegistration,
@@ -53,6 +55,27 @@ from chainidx.model import (
 _INPUTS = 0
 _OUTPUTS = 1
 _CERTIFICATES = 4
+_VOTING_PROCEDURES = 19
+_PROPOSAL_PROCEDURES = 20
+
+# Governance action types by their CBOR tag, and voter roles / votes.
+_GOV_ACTION_TYPES = {
+    0: "ParameterChange",
+    1: "HardForkInitiation",
+    2: "TreasuryWithdrawals",
+    3: "NoConfidence",
+    4: "UpdateCommittee",
+    5: "NewConstitution",
+    6: "InfoAction",
+}
+_VOTER_ROLES = {
+    0: "ConstitutionalCommittee",
+    1: "ConstitutionalCommittee",
+    2: "DRep",
+    3: "DRep",
+    4: "SPO",
+}
+_VOTES = {0: "No", 1: "Yes", 2: "Abstain"}
 
 
 def _blake2b_256(data: bytes) -> str:
@@ -131,11 +154,57 @@ def _decode_certificates(certs: list[Any] | None) -> tuple[Certificate, ...]:
     return tuple(out)
 
 
+def _decode_proposals(body: dict[int, Any], tx_id: str) -> tuple[GovActionProposal, ...]:
+    """Decode governance action proposals (tx body key 20).
+
+    A proposal is ``(deposit, reward_account, gov_action, anchor)``; its id is this
+    transaction's id plus the proposal's index (``txid#index``), which is how votes
+    later refer to it.
+    """
+    out: list[GovActionProposal] = []
+    for index, proposal in enumerate(body.get(_PROPOSAL_PROCEDURES, ()) or ()):
+        deposit, reward_account, gov_action, _anchor = proposal
+        out.append(
+            GovActionProposal(
+                gov_action_id=f"{tx_id}#{index}",
+                action_type=_GOV_ACTION_TYPES.get(gov_action[0], f"Unknown({gov_action[0]})"),
+                deposit=deposit,
+                return_address=reward_account.hex(),
+            )
+        )
+    return tuple(out)
+
+
+def _decode_votes(body: dict[int, Any]) -> tuple[GovVote, ...]:
+    """Decode votes (tx body key 19): ``{voter: {gov_action_id: [vote, anchor]}}``."""
+    out: list[GovVote] = []
+    for voter, actions in (body.get(_VOTING_PROCEDURES) or {}).items():
+        voter_type, voter_cred = voter
+        role = _VOTER_ROLES.get(voter_type, "Unknown")
+        for (gov_txid, gov_index), procedure in actions.items():
+            out.append(
+                GovVote(
+                    gov_action_id=f"{gov_txid.hex()}#{gov_index}",
+                    voter_role=role,
+                    voter_id=voter_cred.hex(),
+                    vote=_VOTES.get(procedure[0], "Unknown"),
+                )
+            )
+    return tuple(out)
+
+
 def _decode_tx(tx_id: str, body: dict[int, Any]) -> Tx:
     inputs = tuple(TxIn(tx_id=i[0].hex(), index=i[1]) for i in body.get(_INPUTS, ()))
     outputs = tuple(_decode_output(o) for o in body.get(_OUTPUTS, ()))
     certificates = _decode_certificates(body.get(_CERTIFICATES))
-    return Tx(tx_id=tx_id, inputs=inputs, outputs=outputs, certificates=certificates)
+    return Tx(
+        tx_id=tx_id,
+        inputs=inputs,
+        outputs=outputs,
+        certificates=certificates,
+        proposals=_decode_proposals(body, tx_id),
+        votes=_decode_votes(body),
+    )
 
 
 def decode_block(block: cbor2.CBORTag) -> Block:
