@@ -214,6 +214,15 @@ def test_epochs_and_network_with_params() -> None:
     assert "time" in block1
 
 
+def test_analytics_summary(client: TestClient) -> None:
+    summary = client.get("/analytics/summary").json()
+    assert summary["total_blocks"] == 2
+    assert summary["total_transactions"] == 2  # one tx in each block
+    assert summary["active_pools"] == 1
+    assert summary["dreps"] == 1
+    assert summary["governance_actions"] == 1
+
+
 def test_blocks_by_height_and_slot(client: TestClient) -> None:
     by_height = client.get("/blocks/height/1").json()
     assert by_height["hash"] == "b1"

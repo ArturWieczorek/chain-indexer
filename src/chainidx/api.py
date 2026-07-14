@@ -309,6 +309,16 @@ def create_app(store: Store, network: NetworkParams | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="epoch not found")
         return _epoch(summary, network)
 
+    @app.get("/analytics/summary")
+    def analytics_summary() -> dict[str, Any]:
+        return {
+            "total_blocks": store.block_count(),
+            "total_transactions": store.total_transactions(),
+            "active_pools": len(store.pools()),
+            "dreps": len(store.dreps()),
+            "governance_actions": len(store.governance_actions()),
+        }
+
     @app.get("/network")
     def network_state() -> dict[str, Any]:
         if network is None:

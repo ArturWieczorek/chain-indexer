@@ -104,6 +104,14 @@ def test_get_block_by_number_and_slot() -> None:
     store.close()
 
 
+def test_total_transactions_counts_across_blocks() -> None:
+    store = SqliteStore()
+    store.apply_block(block(1, "b1", "genesis", txs=(Tx("t1"), Tx("t2"))))
+    store.apply_block(block(2, "b2", "b1", txs=(Tx("t3"),)))
+    assert store.total_transactions() == 3
+    store.close()
+
+
 def test_the_tip_is_the_most_recently_applied_block() -> None:
     store = SqliteStore()
     for i, h in enumerate(["b1", "b2", "b3"], start=1):

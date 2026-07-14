@@ -76,6 +76,10 @@ class Store(Protocol):
         """Return how many blocks are stored."""
         ...
 
+    def total_transactions(self) -> int:
+        """Return the total number of transactions across all blocks."""
+        ...
+
     def balance(self, address: str) -> int:
         """Return the unspent lovelace held by an address."""
         ...
@@ -533,6 +537,10 @@ class SqliteStore:
 
     def block_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) AS n FROM block").fetchone()
+        return int(row["n"])
+
+    def total_transactions(self) -> int:
+        row = self._conn.execute("SELECT COALESCE(SUM(tx_count), 0) AS n FROM block").fetchone()
         return int(row["n"])
 
     def balance(self, address: str) -> int:
