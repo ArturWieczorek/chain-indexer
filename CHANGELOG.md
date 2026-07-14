@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on Keep a Changelog. Each chapter tag (`chNN`) is a release of the course.
 
+## [1.38.0] - Governance tabs
+
+### Changed
+
+- The governance sub-pages (Overview, Committee, Protocol parameters, Protocol
+  updates) now share a persistent tab bar, so switching between them no longer
+  requires returning to the overview.
+
 ## [1.37.0] - Per-epoch stake history (opt-in)
 
 ### Added

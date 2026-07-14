@@ -59,3 +59,4 @@ A checklist of the course chapters. Each chapter is a single commit tagged
 - [x] ch53 - Favicons, theme, and colour (v1.35.0)
 - [x] ch54 - Richer recent blocks on the pool page (v1.36.0)
 - [x] ch55 - Per-epoch stake history (v1.37.0)
+- [x] ch56 - Governance tabs (v1.38.0)

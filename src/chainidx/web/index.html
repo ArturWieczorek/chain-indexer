@@ -352,6 +352,21 @@
         return `<div class="panel" style="display:flex;gap:.4rem">${tab("", "Tokens")}${tab("mints", "Mint Transactions")}</div>`;
       }
 
+      // A persistent tab bar shared by every governance sub-page, so you can move
+      // between them without going back to the overview first.
+      function govTabs(active) {
+        const tab = (href, id, label) =>
+          `<a class="pill${id === active ? " active" : ""}" href="${href}">${label}</a>`;
+        return (
+          `<div class="panel" style="display:flex;gap:.4rem;flex-wrap:wrap">` +
+          tab("#/governance", "overview", "Overview") +
+          tab("#/committee", "committee", "Committee") +
+          tab("#/params", "params", "Protocol parameters") +
+          tab("#/protocol-updates", "updates", "Protocol updates") +
+          `</div>`
+        );
+      }
+
       async function tokensPage(tab) {
         if (tab === "mints") return mintsPage();
         const assets = await api("/assets");
@@ -574,10 +589,7 @@
               .join("")
           : `<tr><td colspan="3" class="muted">No DReps registered yet.</td></tr>`;
         app.innerHTML =
-          `<div class="panel" style="display:flex;gap:.4rem;flex-wrap:wrap">` +
-          `<a class="pill" href="#/committee">Committee</a>` +
-          `<a class="pill" href="#/params">Protocol parameters</a>` +
-          `<a class="pill" href="#/protocol-updates">Protocol updates</a></div>` +
+          govTabs("overview") +
           `<h2>Governance actions</h2><div class="panel"><table>` +
           `<tr><th>Action</th><th>Type</th><th>Yes / No / Abstain</th></tr>${actionRows}</table></div>` +
           `<h2>Delegated representatives (DReps)</h2><div class="panel"><table>` +
@@ -597,6 +609,7 @@
               .join("")
           : `<tr><td colspan="3" class="muted">No protocol-parameter or hard-fork actions on-chain yet.</td></tr>`;
         app.innerHTML =
+          govTabs("updates") +
           `<h2>Protocol updates</h2><div class="panel muted" style="margin-bottom:.6rem">` +
           `In Conway, protocol changes are governance actions: parameter changes and ` +
           `hard-fork initiations.</div>` +
@@ -635,6 +648,7 @@
               .join("")
           : `<tr><td colspan="2" class="muted">No protocol parameters recorded yet (they arrive with the first local-state-query snapshot).</td></tr>`;
         app.innerHTML =
+          govTabs("params") +
           `<h2>Protocol parameters</h2><div class="panel"><table>` +
           `<tr><th>Parameter</th><th>Value</th></tr>${rows}</table></div>`;
       }
@@ -656,6 +670,7 @@
               .join("")
           : `<tr><td colspan="3" class="muted">No committee members on-chain yet.</td></tr>`;
         app.innerHTML =
+          govTabs("committee") +
           `<h2>Constitutional committee</h2><div class="panel"><table>` +
           `<tr><th>Cold credential</th><th>Hot credential</th><th>Status</th></tr>${rows}</table></div>`;
       }
